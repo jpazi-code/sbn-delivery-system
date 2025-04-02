@@ -42,13 +42,30 @@ app.get('/api/health', (req, res) => {
   res.status(200).json({ status: 'ok', message: 'Server is running' });
 });
 
+// Add a root route handler to prevent 404 on root path
+app.get('/', (req, res) => {
+  res.status(200).json({ 
+    status: 'ok', 
+    message: 'SBN Delivery System API is running',
+    endpoints: [
+      '/api/auth',
+      '/api/users',
+      '/api/deliveries',
+      '/api/delivery-requests',
+      '/api/branches',
+      '/api/analytics',
+      '/api/health'
+    ]
+  });
+});
+
 // Protected route example
 app.get('/api/protected', authenticateToken, (req, res) => {
   res.status(200).json({ message: 'This is a protected route', user: req.user });
 });
 
-// Initialize database schema if not in production Vercel environment
-if (process.env.NODE_ENV !== 'production') {
+// Initialize database schema if not in production environment
+if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL_ENV) {
   db.initializeSchema()
     .then(() => {
       // Start server only after schema is initialized (for local development)
@@ -61,13 +78,20 @@ if (process.env.NODE_ENV !== 'production') {
       process.exit(1); // Exit if schema initialization fails
     });
 } else {
-  // For Vercel environment, initialize the database without starting the server
-  db.initializeSchema()
+  // For Vercel environment, just do a lightweight connection test
+  db.query('SELECT NOW()')
     .then(() => {
-      console.log('Database schema initialized for production');
+      console.log('Database connection successful in production');
+      
+      // Only start the server if not in Vercel serverless environment
+      if (!process.env.VERCEL_ENV) {
+        app.listen(PORT, () => {
+          console.log(`Server running on port ${PORT}`);
+        });
+      }
     })
     .catch(err => {
-      console.error('Failed to initialize database:', err);
+      console.error('Database connection failed:', err);
     });
 }
 

@@ -63,9 +63,9 @@ const checkDatabaseInitialized = async () => {
 
 // Modify initializeSchema to check first
 const initializeSchema = async () => {
-  // Skip schema initialization in production Vercel environment
-  if (process.env.VERCEL_ENV === 'production') {
-    console.log('Skipping schema initialization in production Vercel environment');
+  // Skip schema initialization in production environment
+  if (process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV) {
+    console.log('Skipping schema initialization in production environment');
     return true;
   }
 
@@ -80,16 +80,19 @@ const initializeSchema = async () => {
 
   const pool = getPool();
   try {
-    console.log('Dropping existing tables...');
-    await pool.query(`
-      DROP TABLE IF EXISTS delivery_request_items CASCADE;
-      DROP TABLE IF EXISTS delivery_requests CASCADE;
-      DROP TABLE IF EXISTS deliveries CASCADE;
-      DROP TABLE IF EXISTS users CASCADE;
-      DROP TABLE IF EXISTS branches CASCADE;
-    `);
-    
-    console.log('Existing tables dropped successfully');
+    // Only drop tables in development environment
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Dropping existing tables...');
+      await pool.query(`
+        DROP TABLE IF EXISTS delivery_request_items CASCADE;
+        DROP TABLE IF EXISTS delivery_requests CASCADE;
+        DROP TABLE IF EXISTS deliveries CASCADE;
+        DROP TABLE IF EXISTS users CASCADE;
+        DROP TABLE IF EXISTS branches CASCADE;
+      `);
+      
+      console.log('Existing tables dropped successfully');
+    }
     
     // Only attempt to read schema file if not in Vercel environment
     if (process.env.VERCEL_ENV) {
