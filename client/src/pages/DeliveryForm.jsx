@@ -332,7 +332,9 @@ const DeliveryForm = () => {
         // Include branch_id for backend to associate with a branch
         branch_id: formData.branch_id,
         // Include request_id if this delivery is created from a request
-        request_id: requestId
+        request_id: requestId,
+        // Always set status to pending for new deliveries
+        status: isEditMode ? formData.status : 'pending'
       }
       
       if (isEditMode) {
@@ -606,21 +608,23 @@ const DeliveryForm = () => {
             />
           </FormControl>
 
-          <FormControl required>
-            <FormLabel>Status</FormLabel>
-            <Select
-              value={formData.status}
-              onChange={handleStatusChange}
-              disabled={loading}
-            >
-              <Option value="pending">Pending</Option>
-              <Option value="preparing">Preparing</Option>
-              <Option value="loading">Loading</Option>
-              <Option value="in_transit">In Transit</Option>
-              <Option value="delivered">Delivered</Option>
-              <Option value="cancelled">Cancelled</Option>
-            </Select>
-          </FormControl>
+          {isEditMode && (
+            <FormControl required>
+              <FormLabel>Status</FormLabel>
+              <Select
+                value={formData.status}
+                onChange={handleStatusChange}
+                disabled={loading}
+              >
+                <Option value="pending">Pending</Option>
+                <Option value="preparing">Preparing</Option>
+                <Option value="loading">Loading</Option>
+                <Option value="in_transit">In Transit</Option>
+                <Option value="delivered">Delivered</Option>
+                <Option value="cancelled">Cancelled</Option>
+              </Select>
+            </FormControl>
+          )}
 
           <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end', mt: 2 }}>
             <Button
