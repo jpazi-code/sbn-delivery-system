@@ -290,7 +290,20 @@ const CompanyDirectory = () => {
   // This function will create an avatar with profile picture if available
   const renderUserAvatar = (user, size = { width: 80, height: 80, fontSize: '2rem' }) => {
     if (user) {
-      return (
+      return user.profile_picture_url ? (
+        <Avatar
+          src={user.profile_picture_url}
+          variant="soft"
+          color={getRoleColor(user.role)} 
+          sx={{ 
+            width: size.width,
+            height: size.height,
+            fontSize: size.fontSize,
+            mx: 'auto', 
+            mb: 2
+          }}
+        />
+      ) : (
         <Avatar
           variant="soft"
           color={getRoleColor(user.role)} 
