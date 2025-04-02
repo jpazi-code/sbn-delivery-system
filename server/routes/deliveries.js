@@ -267,6 +267,10 @@ router.put('/:id', async (req, res) => {
     // Parse branch_id as integer if provided
     const parsedBranchId = branch_id ? parseInt(branch_id, 10) : null;
     
+    // Validate status to ensure it doesn't exceed the VARCHAR(20) limit
+    const validStatuses = ['pending', 'preparing', 'loading', 'in_transit', 'delivered', 'cancelled'];
+    const deliveryStatus = status && validStatuses.includes(status) ? status : 'pending';
+    
     const result = await db.query(`
       UPDATE deliveries SET
         tracking_number = $1,
@@ -289,7 +293,7 @@ router.put('/:id', async (req, res) => {
       package_description || null, 
       weight || null,
       delivery_date || null,
-      status || 'pending',
+      deliveryStatus,
       parsedBranchId,
       id
     ]);
