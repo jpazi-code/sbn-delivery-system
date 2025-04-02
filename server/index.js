@@ -47,15 +47,29 @@ app.get('/api/protected', authenticateToken, (req, res) => {
   res.status(200).json({ message: 'This is a protected route', user: req.user });
 });
 
-// Initialize database and start server
-db.initializeSchema()
-  .then(() => {
-    // Start server only after schema is initialized
-    app.listen(PORT, () => {
-      console.log(`Server running on port ${PORT}`);
+// Initialize database schema if not in production Vercel environment
+if (process.env.NODE_ENV !== 'production') {
+  db.initializeSchema()
+    .then(() => {
+      // Start server only after schema is initialized (for local development)
+      app.listen(PORT, () => {
+        console.log(`Server running on port ${PORT}`);
+      });
+    })
+    .catch(err => {
+      console.error('Failed to initialize database:', err);
+      process.exit(1); // Exit if schema initialization fails
     });
-  })
-  .catch(err => {
-    console.error('Failed to initialize database:', err);
-    process.exit(1); // Exit if schema initialization fails
-  }); 
+} else {
+  // For Vercel environment, initialize the database without starting the server
+  db.initializeSchema()
+    .then(() => {
+      console.log('Database schema initialized for production');
+    })
+    .catch(err => {
+      console.error('Failed to initialize database:', err);
+    });
+}
+
+// Export the Express app for Vercel
+module.exports = app; 
