@@ -150,6 +150,10 @@ router.post('/', async (req, res) => {
     // Parse request_id as integer if provided
     const parsedRequestId = request_id ? parseInt(request_id, 10) : null;
     
+    // Validate status to ensure it doesn't exceed the VARCHAR(20) limit
+    const validStatuses = ['pending', 'preparing', 'loading', 'in_transit', 'delivered', 'cancelled'];
+    const deliveryStatus = status && validStatuses.includes(status) ? status : 'pending';
+    
     // Generate a unique tracking number
     const timestamp = new Date().getTime();
     const randomPart = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
@@ -191,7 +195,7 @@ router.post('/', async (req, res) => {
       package_description || null, 
       weight || null,
       delivery_date || null,
-      status || 'pending',
+      deliveryStatus,
       parsedBranchId,
       req.user.id,
       parsedRequestId
