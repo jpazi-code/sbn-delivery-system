@@ -16,19 +16,17 @@ const { authenticateToken } = require('./middleware/auth');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Middleware
+// CORS middleware
 app.use(cors({
-  origin: [
-    'http://localhost:3000', 
-    'http://localhost:3001', 
-    'http://localhost:3002', 
-    'http://localhost:3003',
-    'https://sbn-delivery-system-frontend.vercel.app'
-  ],
+  origin: '*', // Allow all origins
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
+
+// Handle OPTIONS preflight requests
+app.options('*', cors());
+
 app.use(express.json());
 
 // Route middleware
