@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link as RouterLink } from 'react-router-dom'
 import axios from 'axios'
+import { useAuth } from '../contexts/AuthContext'
 
 // Joy UI components
 import Box from '@mui/joy/Box'
@@ -32,6 +33,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import LocalShippingIcon from '@mui/icons-material/LocalShipping'
 import InventoryIcon from '@mui/icons-material/Inventory'
 import CancelIcon from '@mui/icons-material/Cancel'
+import AccessTimeFilledIcon from '@mui/icons-material/AccessTimeFilled'
 
 const DeliveryList = () => {
   const [deliveries, setDeliveries] = useState([])
@@ -46,6 +48,11 @@ const DeliveryList = () => {
   const [selectedDelivery, setSelectedDelivery] = useState(null)
   const [newStatus, setNewStatus] = useState('')
   const [updateLoading, setUpdateLoading] = useState(false)
+
+  const { user } = useAuth();
+  const isBranchUser = user?.role === 'branch';
+  const isWarehouseUser = user?.role === 'warehouse';
+  const isAdmin = user?.role === 'admin';
 
   // Fetch deliveries on component mount
   useEffect(() => {
@@ -141,8 +148,40 @@ const DeliveryList = () => {
       case 'pending': return 'preparing';
       case 'preparing': return 'loading';
       case 'loading': return 'in_transit';
-      case 'in_transit': return 'delivered';
+      case 'in_transit': return 'pending_confirmation';
       default: return currentStatus;
+    }
+  };
+
+  // Handle marking a delivery as pending confirmation
+  const handleMarkPendingConfirmation = async (delivery) => {
+    try {
+      const response = await axios.put(`/api/deliveries/${delivery.id}/mark-pending-confirmation`);
+      
+      // Update delivery in state
+      setDeliveries(deliveries.map(d => 
+        d.id === delivery.id ? response.data : d
+      ));
+      
+    } catch (err) {
+      console.error('Error marking delivery as pending confirmation:', err);
+      alert('Failed to update status: ' + (err.response?.data?.error || 'Unknown error'));
+    }
+  };
+
+  // Handle confirming receipt of a delivery
+  const handleConfirmReceipt = async (delivery) => {
+    try {
+      const response = await axios.put(`/api/deliveries/${delivery.id}/confirm-receipt`);
+      
+      // Update delivery in state
+      setDeliveries(deliveries.map(d => 
+        d.id === delivery.id ? response.data : d
+      ));
+      
+    } catch (err) {
+      console.error('Error confirming delivery receipt:', err);
+      alert('Failed to confirm receipt: ' + (err.response?.data?.error || 'Unknown error'));
     }
   };
 
@@ -152,6 +191,11 @@ const DeliveryList = () => {
     
     if (nextStatus === delivery.status) {
       return; // No change needed
+    }
+    
+    // For in_transit -> pending_confirmation transition, use the specific endpoint
+    if (delivery.status === 'in_transit' && nextStatus === 'pending_confirmation') {
+      return handleMarkPendingConfirmation(delivery);
     }
     
     try {
@@ -179,6 +223,7 @@ const DeliveryList = () => {
     if (status === 'preparing') color = 'neutral'
     if (status === 'loading') color = 'info'
     if (status === 'cancelled') color = 'danger'
+    if (status === 'pending_confirmation') color = 'warning'
 
     return (
       <Chip
@@ -187,7 +232,7 @@ const DeliveryList = () => {
         color={color}
         sx={{ textTransform: 'capitalize' }}
       >
-        {status.replace('_', ' ')}
+        {status.replace(/_/g, ' ')}
       </Chip>
     )
   }
@@ -203,6 +248,8 @@ const DeliveryList = () => {
         return <LocalShippingIcon fontSize="small" />;
       case 'in_transit':
         return <LocalShippingIcon fontSize="small" />;
+      case 'pending_confirmation':
+        return <AccessTimeFilledIcon fontSize="small" />;
       case 'delivered':
         return <CheckCircleIcon fontSize="small" />;
       case 'cancelled':
@@ -214,15 +261,71 @@ const DeliveryList = () => {
 
   // Render the TD cell for status with quick update button
   const renderStatusCell = (delivery) => {
+    // For branch users with pending confirmation deliveries
+    if (isBranchUser && delivery.status === 'pending_confirmation' && 
+        parseInt(user.branch_id) === delivery.branch_id) {
+      return (
+        <td>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            {renderStatusChip(delivery.status)}
+            
+            <Button
+              size="sm"
+              variant="soft"
+              color="success"
+              startDecorator={<CheckCircleIcon fontSize="small" />}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleConfirmReceipt(delivery);
+              }}
+              sx={{ mt: 1, fontSize: '0.75rem' }}
+            >
+              Order Received
+            </Button>
+          </Box>
+        </td>
+      );
+    }
+    
+    // For warehouse users with in-transit deliveries
+    if ((isWarehouseUser || isAdmin) && delivery.status === 'in_transit') {
+      return (
+        <td>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            {renderStatusChip(delivery.status)}
+            
+            <Button
+              size="sm"
+              variant="soft"
+              color="warning"
+              startDecorator={<LocalShippingIcon fontSize="small" />}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleMarkPendingConfirmation(delivery);
+              }}
+              sx={{ mt: 1, fontSize: '0.75rem' }}
+            >
+              Mark Delivered
+            </Button>
+          </Box>
+        </td>
+      );
+    }
+    
+    // Standard status progression for other cases
     const nextStatus = getNextStatus(delivery.status);
     const canQuickUpdate = nextStatus !== delivery.status && 
-                           delivery.status !== 'delivered' &&
-                           delivery.status !== 'cancelled';
+                         delivery.status !== 'pending_confirmation' &&
+                         delivery.status !== 'delivered' &&
+                         delivery.status !== 'cancelled';
+                         
+    // Only warehouse/admin can update status for regular progression
+    const canUpdateStatus = (isWarehouseUser || isAdmin) && canQuickUpdate;
                            
     let nextStatusLabel = '';
     let nextStatusIcon = null;
     
-    if (canQuickUpdate) {
+    if (canUpdateStatus) {
       switch (nextStatus) {
         case 'preparing':
           nextStatusLabel = 'Start Preparing';
@@ -236,10 +339,6 @@ const DeliveryList = () => {
           nextStatusLabel = 'Send Out';
           nextStatusIcon = <LocalShippingIcon fontSize="small" />;
           break;
-        case 'delivered':
-          nextStatusLabel = 'Mark Delivered';
-          nextStatusIcon = <CheckCircleIcon fontSize="small" />;
-          break;
         default:
           break;
       }
@@ -250,7 +349,7 @@ const DeliveryList = () => {
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
           {renderStatusChip(delivery.status)}
           
-          {canQuickUpdate && (
+          {canUpdateStatus && (
             <Button
               size="sm"
               variant="soft"

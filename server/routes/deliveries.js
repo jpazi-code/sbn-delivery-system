@@ -280,7 +280,7 @@ router.put('/:id', async (req, res) => {
     const parsedBranchId = branch_id ? parseInt(branch_id, 10) : null;
     
     // Validate status to ensure it doesn't exceed the VARCHAR(20) limit
-    const validStatuses = ['pending', 'preparing', 'loading', 'in_transit', 'delivered', 'cancelled'];
+    const validStatuses = ['pending', 'preparing', 'loading', 'in_transit', 'pending_confirmation', 'delivered', 'cancelled'];
     const deliveryStatus = status && validStatuses.includes(status) ? status : 'pending';
     
     const result = await db.query(`
@@ -355,6 +355,65 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
+// Mark delivery as pending confirmation (for warehouse users)
+router.put('/:id/mark-pending-confirmation', async (req, res) => {
+  try {
+    const deliveryId = parseInt(req.params.id, 10);
+    if (isNaN(deliveryId)) {
+      return res.status(400).json({ message: 'Invalid delivery ID' });
+    }
+    
+    // Check if delivery exists
+    const deliveryResult = await db.query(
+      'SELECT * FROM deliveries WHERE id = $1',
+      [deliveryId]
+    );
+    
+    if (deliveryResult.rows.length === 0) {
+      return res.status(404).json({ message: 'Delivery not found' });
+    }
+    
+    const delivery = deliveryResult.rows[0];
+    
+    // Only warehouse or admin can mark as pending confirmation
+    if (req.user.role !== 'warehouse' && req.user.role !== 'admin') {
+      return res.status(403).json({ 
+        message: 'Access denied. Only warehouse staff or admin can mark deliveries as pending confirmation.' 
+      });
+    }
+    
+    // Only in-transit deliveries can be marked as pending confirmation
+    if (delivery.status !== 'in_transit') {
+      return res.status(400).json({ message: 'Only in-transit deliveries can be marked as pending confirmation' });
+    }
+    
+    // Update delivery status
+    const updateResult = await db.query(
+      `UPDATE deliveries 
+       SET status = 'pending_confirmation',
+           updated_at = NOW()
+       WHERE id = $1
+       RETURNING *`,
+      [deliveryId]
+    );
+    
+    // Get updated delivery with relations
+    const updatedDeliveryResult = await db.query(
+      `SELECT d.*, b.name as branch_name, u.username as driver_name
+       FROM deliveries d
+       LEFT JOIN branches b ON d.branch_id = b.id
+       LEFT JOIN users u ON d.driver_id = u.id
+       WHERE d.id = $1`,
+      [deliveryId]
+    );
+    
+    res.json(updatedDeliveryResult.rows[0]);
+  } catch (error) {
+    console.error('Error marking delivery as pending confirmation:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // Confirm receipt of delivery (branch users)
 router.put('/:id/confirm-receipt', async (req, res) => {
   try {
@@ -383,11 +442,13 @@ router.put('/:id/confirm-receipt', async (req, res) => {
       if (isNaN(userBranchId) || isNaN(deliveryBranchId) || userBranchId !== deliveryBranchId) {
         return res.status(403).json({ message: 'Access denied. You can only confirm deliveries for your branch.' });
       }
+    } else if (req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Access denied. Only branch staff or admin can confirm receipt.' });
     }
     
-    // Only confirm if status is "in_transit"
-    if (delivery.status !== 'in_transit') {
-      return res.status(400).json({ message: 'Only in-transit deliveries can be confirmed as received' });
+    // Only pending confirmation deliveries can be confirmed
+    if (delivery.status !== 'pending_confirmation') {
+      return res.status(400).json({ message: 'Only deliveries pending confirmation can be confirmed as received' });
     }
     
     // Update delivery status
@@ -437,7 +498,7 @@ router.put('/:id/status', async (req, res) => {
     }
     
     // Validate status
-    const validStatuses = ['pending', 'preparing', 'loading', 'in_transit', 'delivered', 'cancelled'];
+    const validStatuses = ['pending', 'preparing', 'loading', 'in_transit', 'pending_confirmation', 'delivered', 'cancelled'];
     if (!validStatuses.includes(status)) {
       return res.status(400).json({ error: 'Invalid status value' });
     }
