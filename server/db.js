@@ -7,11 +7,11 @@ require('dotenv').config();
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: {
-    rejectUnauthorized: false // Required for external connections in Vercel
+    rejectUnauthorized: false // Required for Neon connections
   },
-  max: 5, // Reduce connections for serverless environment
-  idleTimeoutMillis: 30000, // 30 second timeout
-  connectionTimeoutMillis: 5000, // 5 second timeout for faster failures
+  max: 20, // Increased maximum number of clients
+  idleTimeoutMillis: 60000, // Increased idle timeout to 1 minute
+  connectionTimeoutMillis: 30000, // Increased connection timeout to 30 seconds
   keepAlive: true // Enable TCP keepalive
 });
 
@@ -43,23 +43,6 @@ pool.connect()
 const initializeSchema = async () => {
   try {
     console.log('Starting database schema initialization...');
-    
-    // Check if the database is already initialized
-    const tableCheck = await pool.query(`
-      SELECT EXISTS (
-        SELECT FROM information_schema.tables 
-        WHERE table_schema = 'public' 
-        AND table_name = 'users'
-      );
-    `);
-    
-    const tablesExist = tableCheck.rows[0].exists;
-    
-    // If in production and tables exist, skip initialization
-    if (process.env.NODE_ENV === 'production' && tablesExist) {
-      console.log('Database tables already exist. Skipping schema initialization in production.');
-      return true;
-    }
     
     // Force dropping all tables in correct order to avoid reference issues
     console.log('Dropping existing tables...');
