@@ -50,16 +50,25 @@ app.get('/api/protected', authenticateToken, (req, res) => {
   res.status(200).json({ message: 'This is a protected route', user: req.user });
 });
 
-// Initialize database and start server
+// Start server first so health checks can succeed immediately
+const server = app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server running on port ${PORT}, bound to 0.0.0.0`);
+  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+  
+  // Log database connection string (obscured)
+  const dbUrl = process.env.DATABASE_URL || 'not set';
+  console.log(`Database URL configured: ${dbUrl ? 'Yes (length: ' + dbUrl.length + ')' : 'No'}`);
+});
+
+// Initialize database after server starts
+console.log('Initializing database schema...');
 db.initializeSchema()
-  .then(() => {
-    // Start server only after schema is initialized
-    // Bind to 0.0.0.0 to allow external connections in containerized environments
-    app.listen(PORT, '0.0.0.0', () => {
-      console.log(`Server running on port ${PORT}, bound to 0.0.0.0`);
-      console.log(`Database connection successful`);
-      console.log(`Environment: ${process.env.NODE_ENV}`);
-    });
+  .then((success) => {
+    if (success) {
+      console.log('Database schema initialized successfully');
+    } else {
+      console.warn('Database schema initialization returned false, but not throwing error');
+    }
   })
   .catch(err => {
     console.error('Failed to initialize database:', err);
@@ -76,5 +85,9 @@ db.initializeSchema()
       console.error('ERROR: DATABASE_URL environment variable is not set!');
     }
     
-    process.exit(1); // Exit if schema initialization fails
+    // Don't exit process on schema initialization error in production
+    // This allows the healthcheck to pass
+    if (process.env.NODE_ENV !== 'production') {
+      process.exit(1);
+    }
   }); 

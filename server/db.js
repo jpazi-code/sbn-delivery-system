@@ -6,9 +6,9 @@ require('dotenv').config();
 // Create a connection pool to the database
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false // Required for Neon connections
-  },
+  // Railway PostgreSQL doesn't need special SSL configuration as it's in the same network
+  // If needed for external connections:
+  // ssl: process.env.NODE_ENV === 'production' ? true : false,
   max: 20, // Increased maximum number of clients
   idleTimeoutMillis: 60000, // Increased idle timeout to 1 minute
   connectionTimeoutMillis: 30000, // Increased connection timeout to 30 seconds
