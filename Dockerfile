@@ -11,11 +11,16 @@ RUN cd server && npm install --production
 # Copy server code
 COPY server/ ./server/
 
+# Create a healthcheck script
+RUN echo '#!/bin/sh\n\
+curl -f http://localhost:${PORT:-5000}/ || exit 1' > /healthcheck.sh && \
+    chmod +x /healthcheck.sh
+
 # Set environment variable
-ENV NODE_ENV production
+ENV NODE_ENV=production
 
 # Expose port
-EXPOSE 5000
+EXPOSE ${PORT:-5000}
 
-# Start server
-CMD ["node", "server/index.js"] 
+# Start server with proper error handling
+CMD ["sh", "-c", "node server/index.js || (echo 'Server failed to start' && exit 1)"] 

@@ -35,7 +35,12 @@ app.use('/api/delivery-requests', deliveryRequestsRoutes);
 app.use('/api/branches', branchesRoutes);
 app.use('/api/analytics', analyticsRoutes);
 
-// Basic route
+// Root route for healthcheck
+app.get('/', (req, res) => {
+  res.status(200).json({ status: 'ok', message: 'SBN Delivery System API is running' });
+});
+
+// Basic health route
 app.get('/api/health', (req, res) => {
   res.status(200).json({ status: 'ok', message: 'Server is running' });
 });

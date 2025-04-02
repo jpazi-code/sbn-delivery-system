@@ -23,6 +23,11 @@ This project is divided into two main parts:
 5. The deployment will use the Docker configuration defined in:
    - `Dockerfile`
    - `railway.json`
+6. After successful deployment, generate a domain:
+   - Go to your service in Railway dashboard
+   - Click on "Settings" → "Networking"
+   - Click "Generate Domain"
+   - Your app will now be accessible at the generated URL
 
 If you encounter deployment issues, check the build logs in Railway. Common issues:
 - Database connection errors: Verify the DATABASE_URL variable is correctly set
