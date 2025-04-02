@@ -20,7 +20,16 @@ This project is divided into two main parts:
    - `JWT_SECRET`: A secure random string for JWT authentication
    - `NODE_ENV`: Set to `production`
    - `PORT`: Leave as Railway's default (optional)
-5. The deployment will use the railway.json configuration
+5. The deployment will use the configuration in:
+   - `package.json` (root)
+   - `railway.json`
+   - `nixpacks.toml` 
+   - `.node-version`
+
+If you encounter deployment issues, check the build logs in Railway. Common issues:
+- Database connection errors: Verify the DATABASE_URL variable is correctly set
+- Build failures: Check your nixpacks.toml file settings
+- Startup failures: Verify your server's port configuration matches Railway's environment
 
 ### Frontend Deployment (Vercel)
 
