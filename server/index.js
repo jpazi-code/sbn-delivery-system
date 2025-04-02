@@ -18,15 +18,21 @@ const PORT = process.env.PORT || 5000;
 
 // CORS middleware
 app.use(cors({
-  origin: 'https://sbn-delivery-system.frontend.vercel.app', // Specific frontend origin
+  origin: ['https://sbn-delivery-system-frontend.vercel.app', 'https://sbn-delivery-system-lxvdr7jk-jpazi-codes-projects.vercel.app'],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token', 'X-Requested-With', 'Accept', 'Accept-Version', 'Content-Length', 'Content-MD5', 'Date', 'X-Api-Version'],
   maxAge: 86400 // Cache preflight requests for 24 hours
 }));
 
-// Handle OPTIONS preflight requests
-app.options('*', cors());
+// For preflight requests
+app.options('*', (req, res) => {
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, X-API-Key');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.status(200).end();
+});
 
 app.use(express.json());
 
@@ -50,7 +56,26 @@ app.get('/api/cors-test', (req, res) => {
     message: 'CORS is working',
     headers: {
       origin: req.headers.origin,
-      referer: req.headers.referer
+      referer: req.headers.referer,
+      host: req.headers.host,
+      'user-agent': req.headers['user-agent']
+    },
+    timestamp: new Date().toISOString(),
+    env: {
+      NODE_ENV: process.env.NODE_ENV,
+      VERCEL_ENV: process.env.VERCEL_ENV || 'not set'
+    }
+  });
+});
+
+// Add a /auth/test endpoint that doesn't need authentication
+app.get('/api/auth/test', (req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    message: 'Auth route is accessible',
+    cors: {
+      origin: req.headers.origin,
+      method: req.method
     }
   });
 });
