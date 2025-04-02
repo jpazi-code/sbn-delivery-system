@@ -144,15 +144,17 @@ router.post('/', async (req, res) => {
       });
     }
     
+    // Trim all string inputs to avoid length issues
+    const trimmedRecipientName = recipient_name ? recipient_name.substring(0, 100) : '';
+    const trimmedRecipientAddress = recipient_address ? recipient_address.substring(0, 200) : '';
+    const trimmedRecipientPhone = recipient_phone ? recipient_phone.substring(0, 20) : null;
+    const trimmedPackageDescription = package_description ? package_description.substring(0, 500) : null;
+    
     // Parse branch_id as integer if provided
     const parsedBranchId = branch_id ? parseInt(branch_id, 10) : null;
     
     // Parse request_id as integer if provided
     const parsedRequestId = request_id ? parseInt(request_id, 10) : null;
-    
-    // Validate status to ensure it doesn't exceed the VARCHAR(20) limit
-    const validStatuses = ['pending', 'preparing', 'loading', 'in_transit', 'delivered', 'cancelled'];
-    const deliveryStatus = status && validStatuses.includes(status) ? status : 'pending';
     
     // Generate a unique tracking number
     const timestamp = new Date().getTime();
@@ -166,6 +168,9 @@ router.post('/', async (req, res) => {
       // Format: SBN-{timestamp}-{random}
       trackingNumber = `SBN-${timestamp.toString().slice(-6)}-${randomPart}`;
     }
+    
+    // Always use 'pending' for initial status to avoid VARCHAR issues
+    const deliveryStatus = 'pending';
     
     // Ensure user is authenticated with a valid ID
     if (!req.user || !req.user.id) {
@@ -189,10 +194,10 @@ router.post('/', async (req, res) => {
       RETURNING *
     `, [
       trackingNumber, 
-      recipient_name, 
-      recipient_address, 
-      recipient_phone || null, 
-      package_description || null, 
+      trimmedRecipientName, 
+      trimmedRecipientAddress, 
+      trimmedRecipientPhone, 
+      trimmedPackageDescription, 
       weight || null,
       delivery_date || null,
       deliveryStatus,
@@ -264,6 +269,13 @@ router.put('/:id', async (req, res) => {
       });
     }
     
+    // Trim all string inputs to avoid length issues
+    const trimmedTrackingNumber = tracking_number ? tracking_number.substring(0, 50) : '';
+    const trimmedRecipientName = recipient_name ? recipient_name.substring(0, 100) : '';
+    const trimmedRecipientAddress = recipient_address ? recipient_address.substring(0, 200) : '';
+    const trimmedRecipientPhone = recipient_phone ? recipient_phone.substring(0, 20) : null;
+    const trimmedPackageDescription = package_description ? package_description.substring(0, 500) : null;
+    
     // Parse branch_id as integer if provided
     const parsedBranchId = branch_id ? parseInt(branch_id, 10) : null;
     
@@ -286,11 +298,11 @@ router.put('/:id', async (req, res) => {
       WHERE id = $10
       RETURNING *
     `, [
-      tracking_number, 
-      recipient_name, 
-      recipient_address, 
-      recipient_phone || null, 
-      package_description || null, 
+      trimmedTrackingNumber, 
+      trimmedRecipientName, 
+      trimmedRecipientAddress, 
+      trimmedRecipientPhone, 
+      trimmedPackageDescription, 
       weight || null,
       delivery_date || null,
       deliveryStatus,
@@ -430,6 +442,9 @@ router.put('/:id/status', async (req, res) => {
       return res.status(400).json({ error: 'Invalid status value' });
     }
     
+    // Ensure status is correct length for the database field (VARCHAR(20))
+    const trimmedStatus = status.substring(0, 20);
+    
     // Check if delivery exists
     const checkResult = await db.query('SELECT * FROM deliveries WHERE id = $1', [deliveryId]);
     if (checkResult.rows.length === 0) {
@@ -443,7 +458,7 @@ router.put('/:id/status', async (req, res) => {
         updated_at = CURRENT_TIMESTAMP
       WHERE id = $2
       RETURNING *
-    `, [status, deliveryId]);
+    `, [trimmedStatus, deliveryId]);
     
     // Return full delivery with branch info
     const deliveryWithBranch = await db.query(`
