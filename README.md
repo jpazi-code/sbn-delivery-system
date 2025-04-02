@@ -68,3 +68,36 @@ If you encounter deployment issues, check the build logs in Railway. Common issu
 - User authentication (login)
 - Dashboard with delivery overview
 - CRUD operations for managing deliveries 
+- Dashboard with delivery overview
+- CRUD operations for managing deliveries 
+
+## Deployment on Vercel (Monorepo Approach)
+
+To deploy both frontend and backend as a single project on Vercel:
+
+1. Push your code to GitHub
+2. Connect your Vercel account to your GitHub repository
+3. Import the project into Vercel (select the root directory, not just client or server)
+4. Set up environment variables in the Vercel dashboard:
+   - `DATABASE_URL`: Connection string for your PostgreSQL database
+   - `JWT_SECRET`: Secret key for JWT token generation
+   - `NODE_ENV`: Set to `production`
+5. The deployment will use the configuration in `vercel.json`, which:
+   - Routes API requests (`/api/*`) to the server
+   - Routes all other requests to the client build
+   - Sets up proper build commands for both client and server
+
+### Verifying Your Deployment
+
+After deployment:
+1. Your API will be available at `https://your-vercel-domain.vercel.app/api/*`
+2. Your frontend will be available at `https://your-vercel-domain.vercel.app/`
+3. The server's healthcheck endpoint will be at `https://your-vercel-domain.vercel.app/healthcheck`
+
+### Troubleshooting Vercel Deployment
+
+- If you encounter issues with the API routes, check the Vercel Function Logs
+- Verify that your database connection is working properly
+- Make sure all required environment variables are set
+- Check that the build process completes successfully for both client and server
+- If encountering timeout issues during build, you may need to adjust your build commands or split the deployment into separate projects 

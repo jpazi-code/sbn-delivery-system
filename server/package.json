@@ -9,6 +9,7 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
+    "vercel-build": "echo 'Server build step complete'",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
