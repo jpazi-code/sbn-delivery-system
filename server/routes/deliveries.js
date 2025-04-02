@@ -446,9 +446,15 @@ router.put('/:id/confirm-receipt', async (req, res) => {
       return res.status(403).json({ message: 'Access denied. Only branch staff or admin can confirm receipt.' });
     }
     
+    // Normalize the status for comparison (convert spaces to underscore, make lowercase)
+    const normalizedStatus = delivery.status.toLowerCase().replace(/\s+/g, '_');
+    
     // Only pending confirmation deliveries can be confirmed
-    if (delivery.status !== 'pending_confirmation') {
-      return res.status(400).json({ message: 'Only deliveries pending confirmation can be confirmed as received' });
+    if (normalizedStatus !== 'pending_confirmation') {
+      return res.status(400).json({ 
+        message: 'Only deliveries pending confirmation can be confirmed as received',
+        currentStatus: delivery.status
+      });
     }
     
     // Update delivery status

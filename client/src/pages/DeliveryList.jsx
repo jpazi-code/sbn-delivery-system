@@ -49,6 +49,9 @@ const DeliveryList = () => {
   const [newStatus, setNewStatus] = useState('')
   const [updateLoading, setUpdateLoading] = useState(false)
 
+  // Add this near the other state declarations
+  const [deliveryToConfirm, setDeliveryToConfirm] = useState(null)
+
   const { user } = useAuth();
   const isBranchUser = user?.role === 'branch';
   const isWarehouseUser = user?.role === 'warehouse';
@@ -181,7 +184,19 @@ const DeliveryList = () => {
       
     } catch (err) {
       console.error('Error confirming delivery receipt:', err);
-      alert('Failed to confirm receipt: ' + (err.response?.data?.error || 'Unknown error'));
+      
+      // Improved error message handling
+      let errorMessage = 'Failed to confirm receipt';
+      
+      if (err.response) {
+        errorMessage += `: ${err.response.data.message || 'Unknown error'}`;
+        if (err.response.data.currentStatus) {
+          errorMessage += ` (Current status: ${err.response.data.currentStatus})`;
+        }
+      }
+      
+      // Show error message
+      alert(errorMessage);
     }
   };
 
@@ -276,7 +291,7 @@ const DeliveryList = () => {
               startDecorator={<CheckCircleIcon fontSize="small" />}
               onClick={(e) => {
                 e.stopPropagation();
-                handleConfirmReceipt(delivery);
+                setDeliveryToConfirm(delivery);
               }}
               sx={{ mt: 1, fontSize: '0.75rem' }}
             >
@@ -584,6 +599,60 @@ const DeliveryList = () => {
                 </Button>
               </Box>
             </Box>
+          )}
+        </ModalDialog>
+      </Modal>
+
+      {/* Confirm Receipt Modal */}
+      <Modal
+        open={Boolean(deliveryToConfirm)}
+        onClose={() => setDeliveryToConfirm(null)}
+      >
+        <ModalDialog
+          size="sm"
+          variant="outlined"
+          role="alertdialog"
+          sx={{ 
+            zIndex: 9999,
+            position: 'fixed',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)'
+          }}
+        >
+          <ModalClose onClick={() => setDeliveryToConfirm(null)} />
+          <Typography level="title-lg" startDecorator={<CheckCircleIcon />} sx={{ mb: 2 }}>
+            Confirm Delivery Receipt
+          </Typography>
+          
+          {deliveryToConfirm && (
+            <>
+              <Typography level="body-md" sx={{ mb: 2 }}>
+                Are you sure you want to confirm that delivery #{deliveryToConfirm.id} with 
+                tracking number {deliveryToConfirm.tracking_number} has been received?
+              </Typography>
+              
+              <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end', mt: 2 }}>
+                <Button
+                  variant="plain"
+                  color="neutral"
+                  onClick={() => setDeliveryToConfirm(null)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="solid"
+                  color="success"
+                  startDecorator={<CheckCircleIcon />}
+                  onClick={() => {
+                    handleConfirmReceipt(deliveryToConfirm);
+                    setDeliveryToConfirm(null);
+                  }}
+                >
+                  Confirm Receipt
+                </Button>
+              </Box>
+            </>
           )}
         </ModalDialog>
       </Modal>
