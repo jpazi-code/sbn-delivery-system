@@ -163,6 +163,11 @@ router.post('/', async (req, res) => {
       trackingNumber = `SBN-${timestamp.toString().slice(-6)}-${randomPart}`;
     }
     
+    // Ensure user is authenticated with a valid ID
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ error: 'Unauthorized: User ID is required' });
+    }
+    
     const result = await db.query(`
       INSERT INTO deliveries (
         tracking_number, 
