@@ -27,6 +27,11 @@ app.use(cors({
 }));
 app.use(express.json());
 
+// Dedicated healthcheck endpoint that responds immediately
+app.get('/healthcheck', (req, res) => {
+  return res.status(200).send('OK');
+});
+
 // Route middleware
 app.use('/api/auth', authRoutes);
 app.use('/api/users', usersRoutes);

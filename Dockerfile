@@ -13,8 +13,8 @@ COPY server/ ./server/
 
 # Create a healthcheck script
 RUN echo '#!/bin/sh\n\
-echo "Healthcheck: Checking endpoint http://localhost:${PORT:-5000}/"\n\
-curl -f http://localhost:${PORT:-5000}/ || (echo "Healthcheck failed!" && exit 1)' > /healthcheck.sh && \
+echo "Healthcheck: Checking endpoint http://localhost:${PORT:-5000}/healthcheck"\n\
+curl -f http://localhost:${PORT:-5000}/healthcheck || (echo "Healthcheck failed!" && exit 1)' > /healthcheck.sh && \
     chmod +x /healthcheck.sh
 
 # Set environment variable
