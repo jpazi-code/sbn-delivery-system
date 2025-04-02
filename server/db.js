@@ -39,12 +39,31 @@ pool.connect()
   .then(() => console.log('Connected to PostgreSQL database'))
   .catch(err => console.error('Database connection error:', err.stack));
 
-// Function to initialize the database schema
-const initializeSchema = async () => {
+// Add a function to check if database is already initialized
+const checkDatabaseInitialized = async () => {
   try {
-    console.log('Starting database schema initialization...');
-    
-    // Force dropping all tables in correct order to avoid reference issues
+    const result = await pool.query(
+      "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'users')"
+    );
+    return result.rows[0].exists;
+  } catch (err) {
+    console.error('Error checking database initialization:', err);
+    return false;
+  }
+};
+
+// Modify initializeSchema to check first
+const initializeSchema = async () => {
+  console.log('Starting database schema initialization...');
+  
+  // Check if database is already initialized
+  const isInitialized = await checkDatabaseInitialized();
+  if (isInitialized) {
+    console.log('Database already initialized, skipping schema creation');
+    return;
+  }
+
+  try {
     console.log('Dropping existing tables...');
     await pool.query(`
       DROP TABLE IF EXISTS delivery_request_items CASCADE;
