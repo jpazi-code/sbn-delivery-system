@@ -3,44 +3,53 @@ const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
 
+// Global singleton pattern to reuse connection across serverless invocations
+let globalPool;
+
 // Create a connection pool to the database
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false // Required for Neon connections
-  },
-  max: 20, // Increased maximum number of clients
-  idleTimeoutMillis: 60000, // Increased idle timeout to 1 minute
-  connectionTimeoutMillis: 30000, // Increased connection timeout to 30 seconds
-  keepAlive: true // Enable TCP keepalive
-});
-
-// Add event listeners for connection issues
-pool.on('error', (err, client) => {
-  console.error('Unexpected error on idle client', err);
-  // Attempt to reconnect on connection errors
-  if (err.code === 'PROTOCOL_CONNECTION_LOST') {
-    console.log('Lost connection to the database. Attempting to reconnect...');
-    pool.connect()
-      .then(() => console.log('Successfully reconnected to database'))
-      .catch(reconnectErr => console.error('Failed to reconnect:', reconnectErr));
+const getPool = () => {
+  if (globalPool) {
+    return globalPool;
   }
-});
 
-// Add connection error handling
-pool.on('connect', (client) => {
-  client.on('error', (err) => {
-    console.error('Database client error:', err);
+  // Create new pool if one doesn't exist
+  globalPool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: {
+      rejectUnauthorized: false // Required for Neon connections
+    },
+    max: 5, // Reduced for serverless environment
+    idleTimeoutMillis: 30000, // 30 seconds idle timeout
+    connectionTimeoutMillis: 10000, // 10 seconds connection timeout
+    keepAlive: true // Enable TCP keepalive
   });
-});
 
-// Test the database connection
-pool.connect()
-  .then(() => console.log('Connected to PostgreSQL database'))
-  .catch(err => console.error('Database connection error:', err.stack));
+  // Add event listeners for connection issues
+  globalPool.on('error', (err, client) => {
+    console.error('Unexpected error on idle client', err);
+    // Reset the pool on critical errors
+    if (err.code === 'PROTOCOL_CONNECTION_LOST' || err.code === 'ECONNRESET') {
+      console.log('Lost connection to the database. Connection will be re-established on next request');
+      globalPool = null; // Force new pool on next request
+    }
+  });
+
+  return globalPool;
+};
+
+// Test the database connection - only run in development
+if (process.env.NODE_ENV !== 'production') {
+  getPool().connect()
+    .then(client => {
+      console.log('Connected to PostgreSQL database');
+      client.release();
+    })
+    .catch(err => console.error('Database connection error:', err.stack));
+}
 
 // Add a function to check if database is already initialized
 const checkDatabaseInitialized = async () => {
+  const pool = getPool();
   try {
     const result = await pool.query(
       "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'users')"
@@ -54,15 +63,22 @@ const checkDatabaseInitialized = async () => {
 
 // Modify initializeSchema to check first
 const initializeSchema = async () => {
+  // Skip schema initialization in production Vercel environment
+  if (process.env.VERCEL_ENV === 'production') {
+    console.log('Skipping schema initialization in production Vercel environment');
+    return true;
+  }
+
   console.log('Starting database schema initialization...');
   
   // Check if database is already initialized
   const isInitialized = await checkDatabaseInitialized();
   if (isInitialized) {
     console.log('Database already initialized, skipping schema creation');
-    return;
+    return true;
   }
 
+  const pool = getPool();
   try {
     console.log('Dropping existing tables...');
     await pool.query(`
@@ -74,6 +90,12 @@ const initializeSchema = async () => {
     `);
     
     console.log('Existing tables dropped successfully');
+    
+    // Only attempt to read schema file if not in Vercel environment
+    if (process.env.VERCEL_ENV) {
+      console.log('Skipping schema file application in Vercel environment');
+      return true;
+    }
     
     // Apply the full schema
     console.log('Reading schema file...');
@@ -111,7 +133,19 @@ const initializeSchema = async () => {
   }
 };
 
+// Simple query method with connection management
+const query = async (text, params) => {
+  const pool = getPool();
+  const client = await pool.connect();
+  try {
+    const result = await client.query(text, params);
+    return result;
+  } finally {
+    client.release();
+  }
+};
+
 module.exports = {
-  query: (text, params) => pool.query(text, params),
+  query,
   initializeSchema,
 }; 
