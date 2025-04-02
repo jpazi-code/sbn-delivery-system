@@ -18,10 +18,11 @@ const PORT = process.env.PORT || 5000;
 
 // CORS middleware
 app.use(cors({
-  origin: '*', // Allow all origins
+  origin: 'https://sbn-delivery-system.frontend.vercel.app', // Specific frontend origin
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  maxAge: 86400 // Cache preflight requests for 24 hours
 }));
 
 // Handle OPTIONS preflight requests
@@ -40,6 +41,18 @@ app.use('/api/analytics', analyticsRoutes);
 // Basic route
 app.get('/api/health', (req, res) => {
   res.status(200).json({ status: 'ok', message: 'Server is running' });
+});
+
+// CORS test endpoint
+app.get('/api/cors-test', (req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    message: 'CORS is working',
+    headers: {
+      origin: req.headers.origin,
+      referer: req.headers.referer
+    }
+  });
 });
 
 // Add a root route handler to prevent 404 on root path

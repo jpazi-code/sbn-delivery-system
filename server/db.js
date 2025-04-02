@@ -18,17 +18,19 @@ const getPool = () => {
     ssl: {
       rejectUnauthorized: false // Required for Neon connections
     },
-    max: 5, // Reduced for serverless environment
-    idleTimeoutMillis: 30000, // 30 seconds idle timeout
-    connectionTimeoutMillis: 10000, // 10 seconds connection timeout
-    keepAlive: true // Enable TCP keepalive
+    max: 3, // Reduced for serverless environment
+    idleTimeoutMillis: 10000, // 10 seconds idle timeout - shorter for serverless
+    connectionTimeoutMillis: 5000, // 5 seconds connection timeout - faster timeout for serverless
+    keepAlive: true, // Enable TCP keepalive
+    keepAliveInitialDelayMillis: 10000, // 10 seconds initial delay for keepalive
+    allowExitOnIdle: true // Allow the pool to exit if there are no connections
   });
 
   // Add event listeners for connection issues
   globalPool.on('error', (err, client) => {
     console.error('Unexpected error on idle client', err);
     // Reset the pool on critical errors
-    if (err.code === 'PROTOCOL_CONNECTION_LOST' || err.code === 'ECONNRESET') {
+    if (err.code === 'PROTOCOL_CONNECTION_LOST' || err.code === 'ECONNRESET' || err.code === 'ETIMEDOUT') {
       console.log('Lost connection to the database. Connection will be re-established on next request');
       globalPool = null; // Force new pool on next request
     }
@@ -139,7 +141,17 @@ const initializeSchema = async () => {
 // Simple query method with connection management
 const query = async (text, params) => {
   const pool = getPool();
-  const client = await pool.connect();
+  let client;
+  
+  try {
+    client = await pool.connect();
+  } catch (connectionError) {
+    console.error('Failed to connect to database:', connectionError);
+    // Reset the pool on connection errors to try with a fresh pool next time
+    globalPool = null;
+    throw connectionError;
+  }
+  
   try {
     const result = await client.query(text, params);
     return result;

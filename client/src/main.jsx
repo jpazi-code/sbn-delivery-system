@@ -11,6 +11,14 @@ import { GlobalStyles } from '@mui/joy'
 // Set axios default URL
 axios.defaults.baseURL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 axios.defaults.withCredentials = true;
+axios.defaults.headers.common['Content-Type'] = 'application/json';
+
+// Handle CORS preflight
+const originalFetch = window.fetch;
+window.fetch = async (...args) => {
+  const response = await originalFetch(...args);
+  return response;
+};
 
 // Get stored theme preference
 const storedMode = localStorage.getItem('joy-mode') || 'light';
