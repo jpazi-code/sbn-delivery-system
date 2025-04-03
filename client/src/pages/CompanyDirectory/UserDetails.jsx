@@ -227,3 +227,4 @@ const InfoItem = ({ icon, label, value }) => {
 };
 
 export default UserDetails; 
+ 
