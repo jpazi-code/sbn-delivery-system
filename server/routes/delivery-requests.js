@@ -17,42 +17,23 @@ router.get('/', async (req, res) => {
     if (role === 'admin' || role === 'warehouse') {
       // Admin and warehouse users can see all requests
       result = await db.query(`
-        WITH branch_users AS (
-          SELECT DISTINCT ON (dr.id) dr.id as request_id, 
-                 u.full_name as requested_by,
-                 u.username
-          FROM delivery_requests dr
-          JOIN branches b ON dr.branch_id = b.id
-          LEFT JOIN users u ON u.branch_id = dr.branch_id AND u.role = 'branch'
-          ORDER BY dr.id, u.id ASC
-        )
         SELECT dr.*, b.name as branch_name, 
-               bu.requested_by,
-               bu.username
+               creator.full_name as requested_by,
+               creator.username
         FROM delivery_requests dr
         JOIN branches b ON dr.branch_id = b.id
-        LEFT JOIN branch_users bu ON bu.request_id = dr.id
+        LEFT JOIN users creator ON creator.id = dr.created_by_id
         ORDER BY dr.created_at DESC
       `);
     } else if (role === 'branch') {
       // Branch users can only see their own requests
       result = await db.query(`
-        WITH branch_users AS (
-          SELECT DISTINCT ON (dr.id) dr.id as request_id, 
-                 u.full_name as requested_by,
-                 u.username
-          FROM delivery_requests dr
-          JOIN branches b ON dr.branch_id = b.id
-          LEFT JOIN users u ON u.branch_id = dr.branch_id AND u.role = 'branch'
-          WHERE dr.branch_id = $1
-          ORDER BY dr.id, u.id ASC
-        )
         SELECT dr.*, b.name as branch_name, 
-               bu.requested_by,
-               bu.username
+               creator.full_name as requested_by,
+               creator.username
         FROM delivery_requests dr
         JOIN branches b ON dr.branch_id = b.id
-        LEFT JOIN branch_users bu ON bu.request_id = dr.id
+        LEFT JOIN users creator ON creator.id = dr.created_by_id
         WHERE dr.branch_id = $1
         ORDER BY dr.created_at DESC
       `, [branch_id]);
@@ -86,22 +67,12 @@ router.get('/:id', async (req, res) => {
     const { role, branch_id } = req.user;
 
     const result = await db.query(`
-      WITH branch_users AS (
-        SELECT DISTINCT ON (dr.id) dr.id as request_id, 
-               u.full_name as requested_by,
-               u.username
-        FROM delivery_requests dr
-        JOIN branches b ON dr.branch_id = b.id
-        LEFT JOIN users u ON u.branch_id = dr.branch_id AND u.role = 'branch'
-        WHERE dr.id = $1
-        ORDER BY dr.id, u.id ASC
-      )
       SELECT dr.*, b.name as branch_name, 
-             bu.requested_by,
-             bu.username
+             creator.full_name as requested_by,
+             creator.username
       FROM delivery_requests dr
       JOIN branches b ON dr.branch_id = b.id
-      LEFT JOIN branch_users bu ON bu.request_id = dr.id
+      LEFT JOIN users creator ON creator.id = dr.created_by_id
       WHERE dr.id = $1
       LIMIT 1
     `, [id]);
@@ -189,15 +160,17 @@ router.post('/', async (req, res) => {
           delivery_date,
           priority,
           notes,
-          total_amount
-        ) VALUES ($1, $2, $3, $4, $5)
+          total_amount,
+          created_by_id
+        ) VALUES ($1, $2, $3, $4, $5, $6)
         RETURNING *
       `, [
         requestBranchId,
         deliveryDate || null,
         priority || 'medium',
         notes || null,
-        total_amount || 0
+        total_amount || 0,
+        id // Store the actual creator's ID
       ]);
       
       const request = requestResult.rows[0];
@@ -230,21 +203,11 @@ router.post('/', async (req, res) => {
       
       // Get the full request with items
       const fullResult = await db.query(`
-        WITH branch_users AS (
-          SELECT DISTINCT ON (dr.id) dr.id as request_id, 
-                 u.full_name as requested_by,
-                 u.username
-          FROM delivery_requests dr
-          JOIN branches b ON dr.branch_id = b.id
-          LEFT JOIN users u ON u.branch_id = dr.branch_id AND u.role = 'branch'
-          WHERE dr.id = $1
-          ORDER BY dr.id, u.id ASC
-        )
         SELECT dr.*, b.name as branch_name,
-               bu.requested_by, bu.username
+               creator.full_name as requested_by, creator.username
         FROM delivery_requests dr
         JOIN branches b ON dr.branch_id = b.id
-        LEFT JOIN branch_users bu ON bu.request_id = dr.id
+        LEFT JOIN users creator ON creator.id = dr.created_by_id
         WHERE dr.id = $1
       `, [request.id]);
       
@@ -340,24 +303,14 @@ router.put('/:id/status', async (req, res) => {
 
     // Get the full request with items
     const fullResult = await db.query(`
-      WITH branch_users AS (
-        SELECT DISTINCT ON (dr.id) dr.id as request_id, 
-               u.full_name as requested_by,
-               u.username
-        FROM delivery_requests dr
-        JOIN branches b ON dr.branch_id = b.id
-        LEFT JOIN users u ON u.branch_id = dr.branch_id AND u.role = 'branch'
-        WHERE dr.id = $1
-        ORDER BY dr.id, u.id ASC
-      )
       SELECT dr.*, b.name as branch_name, 
              p.username as processor_username, p.full_name as processor_full_name,
-             bu.requested_by,
-             bu.username
+             creator.full_name as requested_by,
+             creator.username
       FROM delivery_requests dr
       JOIN branches b ON dr.branch_id = b.id
       LEFT JOIN users p ON dr.processed_by = p.id
-      LEFT JOIN branch_users bu ON bu.request_id = dr.id
+      LEFT JOIN users creator ON creator.id = dr.created_by_id
       WHERE dr.id = $1
     `, [id]);
     
