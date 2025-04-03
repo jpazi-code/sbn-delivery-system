@@ -314,6 +314,7 @@ router.put('/:id', async (req, res) => {
     // Handle the case when profile_picture_url is explicitly set to null (for removal)
     if (profile_picture_url !== undefined) {
       if (profile_picture_url === null) {
+        // For NULL values, we don't use parameterized query to ensure SQL NULL is used
         updates.push(`profile_picture_url = NULL`);
       } else {
         updates.push(`profile_picture_url = $${paramIndex}`);
