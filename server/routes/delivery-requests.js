@@ -22,17 +22,11 @@ router.get('/', async (req, res) => {
         SELECT 
           dr.*,
           b.name as branch_name,
-          COALESCE(
-            (SELECT full_name FROM users WHERE id = dr.created_by_id),
-            u.full_name
-          ) as requested_by,
-          COALESCE(
-            (SELECT username FROM users WHERE id = dr.created_by_id),
-            u.username
-          ) as username
+          creator.full_name as requested_by,
+          creator.username
         FROM delivery_requests dr
         JOIN branches b ON dr.branch_id = b.id
-        JOIN users u ON u.branch_id = dr.branch_id
+        LEFT JOIN users creator ON creator.id = dr.created_by_id
         ORDER BY dr.created_at DESC
       `);
     } else if (role === 'branch') {
@@ -41,17 +35,11 @@ router.get('/', async (req, res) => {
         SELECT 
           dr.*,
           b.name as branch_name,
-          COALESCE(
-            (SELECT full_name FROM users WHERE id = dr.created_by_id),
-            u.full_name
-          ) as requested_by,
-          COALESCE(
-            (SELECT username FROM users WHERE id = dr.created_by_id),
-            u.username
-          ) as username
+          creator.full_name as requested_by,
+          creator.username
         FROM delivery_requests dr
         JOIN branches b ON dr.branch_id = b.id
-        JOIN users u ON u.branch_id = dr.branch_id
+        LEFT JOIN users creator ON creator.id = dr.created_by_id
         WHERE dr.branch_id = $1
         ORDER BY dr.created_at DESC
       `, [branch_id]);
@@ -92,17 +80,11 @@ router.get('/:id', async (req, res) => {
       SELECT 
         dr.*,
         b.name as branch_name,
-        COALESCE(
-          (SELECT full_name FROM users WHERE id = dr.created_by_id),
-          u.full_name
-        ) as requested_by,
-        COALESCE(
-          (SELECT username FROM users WHERE id = dr.created_by_id),
-          u.username
-        ) as username
+        creator.full_name as requested_by,
+        creator.username
       FROM delivery_requests dr
       JOIN branches b ON dr.branch_id = b.id
-      JOIN users u ON u.branch_id = dr.branch_id
+      LEFT JOIN users creator ON creator.id = dr.created_by_id
       WHERE dr.id = $1
       LIMIT 1
     `, [id]);
