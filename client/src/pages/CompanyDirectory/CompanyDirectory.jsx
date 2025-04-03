@@ -543,6 +543,18 @@ const CompanyDirectory = () => {
                         Edit
                       </Button>
                     )}
+                    
+                    {isAdmin && (
+                      <Button 
+                        size="sm" 
+                        variant="outlined" 
+                        color="danger"
+                        startDecorator={<DeleteIcon />}
+                        onClick={() => openDeleteConfirm(user)}
+                      >
+                        Delete
+                      </Button>
+                    )}
                   </CardActions>
                 </CardOverflow>
               </Card>
