@@ -18,11 +18,10 @@ router.get('/', async (req, res) => {
       // Admin and warehouse users can see all requests
       result = await db.query(`
         SELECT dr.*, b.name as branch_name, 
-               COALESCE(req_user.full_name, branch_user.full_name) as requested_by,
-               COALESCE(req_user.username, branch_user.username) as username
+               branch_user.full_name as requested_by,
+               branch_user.username
         FROM delivery_requests dr
         JOIN branches b ON dr.branch_id = b.id
-        LEFT JOIN users req_user ON req_user.id = dr.requested_by_id
         LEFT JOIN users branch_user ON branch_user.branch_id = dr.branch_id AND branch_user.role = 'branch'
         ORDER BY dr.created_at DESC
       `);
@@ -30,11 +29,10 @@ router.get('/', async (req, res) => {
       // Branch users can only see their own requests
       result = await db.query(`
         SELECT dr.*, b.name as branch_name, 
-               COALESCE(req_user.full_name, branch_user.full_name) as requested_by,
-               COALESCE(req_user.username, branch_user.username) as username
+               branch_user.full_name as requested_by,
+               branch_user.username
         FROM delivery_requests dr
         JOIN branches b ON dr.branch_id = b.id
-        LEFT JOIN users req_user ON req_user.id = dr.requested_by_id
         LEFT JOIN users branch_user ON branch_user.branch_id = dr.branch_id AND branch_user.role = 'branch'
         WHERE dr.branch_id = $1
         ORDER BY dr.created_at DESC
@@ -70,11 +68,10 @@ router.get('/:id', async (req, res) => {
 
     const result = await db.query(`
       SELECT dr.*, b.name as branch_name, 
-             COALESCE(req_user.full_name, branch_user.full_name) as requested_by,
-             COALESCE(req_user.username, branch_user.username) as username
+             branch_user.full_name as requested_by,
+             branch_user.username
       FROM delivery_requests dr
       JOIN branches b ON dr.branch_id = b.id
-      LEFT JOIN users req_user ON req_user.id = dr.requested_by_id
       LEFT JOIN users branch_user ON branch_user.branch_id = dr.branch_id AND branch_user.role = 'branch'
       WHERE dr.id = $1
       LIMIT 1
@@ -163,17 +160,15 @@ router.post('/', async (req, res) => {
           delivery_date,
           priority,
           notes,
-          total_amount,
-          requested_by_id
-        ) VALUES ($1, $2, $3, $4, $5, $6)
+          total_amount
+        ) VALUES ($1, $2, $3, $4, $5)
         RETURNING *
       `, [
         requestBranchId,
         deliveryDate || null,
         priority || 'medium',
         notes || null,
-        total_amount || 0,
-        id // Store the user ID of the requester
+        total_amount || 0
       ]);
       
       const request = requestResult.rows[0];
