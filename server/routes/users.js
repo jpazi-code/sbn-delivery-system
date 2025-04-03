@@ -311,10 +311,15 @@ router.put('/:id', async (req, res) => {
       paramIndex++;
     }
     
+    // Handle the case when profile_picture_url is explicitly set to null (for removal)
     if (profile_picture_url !== undefined) {
-      updates.push(`profile_picture_url = $${paramIndex}`);
-      values.push(profile_picture_url);
-      paramIndex++;
+      if (profile_picture_url === null) {
+        updates.push(`profile_picture_url = NULL`);
+      } else {
+        updates.push(`profile_picture_url = $${paramIndex}`);
+        values.push(profile_picture_url);
+        paramIndex++;
+      }
     }
     
     if (password && current_password) {
