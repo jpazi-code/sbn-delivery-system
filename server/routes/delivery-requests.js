@@ -17,22 +17,24 @@ router.get('/', async (req, res) => {
     if (role === 'admin' || role === 'warehouse') {
       // Admin and warehouse users can see all requests
       result = await db.query(`
-        SELECT dr.*, b.name as branch_name, u.username as requested_by
+        SELECT dr.*, b.name as branch_name, 
+               u.username as requested_by, u.full_name as requester_full_name
         FROM delivery_requests dr
         JOIN branches b ON dr.branch_id = b.id
-        LEFT JOIN users u ON u.id = $1
+        LEFT JOIN users u ON u.branch_id = dr.branch_id
         ORDER BY dr.created_at DESC
-      `, [id]);
+      `);
     } else if (role === 'branch') {
       // Branch users can only see their own requests
       result = await db.query(`
-        SELECT dr.*, b.name as branch_name, u.username as requested_by
+        SELECT dr.*, b.name as branch_name, 
+               u.username as requested_by, u.full_name as requester_full_name
         FROM delivery_requests dr
         JOIN branches b ON dr.branch_id = b.id
-        LEFT JOIN users u ON u.id = $1
-        WHERE dr.branch_id = $2
+        LEFT JOIN users u ON u.branch_id = dr.branch_id
+        WHERE dr.branch_id = $1
         ORDER BY dr.created_at DESC
-      `, [id, branch_id]);
+      `, [branch_id]);
     } else {
       return res.status(403).json({ error: 'Unauthorized role for this operation' });
     }
@@ -63,10 +65,11 @@ router.get('/:id', async (req, res) => {
     const { role, branch_id } = req.user;
 
     const result = await db.query(`
-      SELECT dr.*, b.name as branch_name, u.username as requested_by
+      SELECT dr.*, b.name as branch_name, 
+             u.username as requested_by, u.full_name as requester_full_name
       FROM delivery_requests dr
       JOIN branches b ON dr.branch_id = b.id
-      LEFT JOIN users u ON u.branch_id = dr.branch_id
+      LEFT JOIN users u ON u.branch_id = dr.branch_id AND u.role = 'branch'
       WHERE dr.id = $1
     `, [id]);
 
@@ -99,7 +102,7 @@ router.get('/:id', async (req, res) => {
 // Create new delivery request (branch users only)
 router.post('/', async (req, res) => {
   try {
-    const { role, id, branch_id } = req.user;
+    const { role, id, branch_id, username, full_name } = req.user;
     
     // Only branch users can create requests
     if (role !== 'branch') {
@@ -146,22 +149,24 @@ router.post('/', async (req, res) => {
     const client = await db.query('BEGIN');
     
     try {
-      // Create the delivery request
+      // Create the delivery request with creator info
       const requestResult = await db.query(`
         INSERT INTO delivery_requests (
           branch_id,
           delivery_date,
           priority,
           notes,
-          total_amount
-        ) VALUES ($1, $2, $3, $4, $5)
+          total_amount,
+          created_by
+        ) VALUES ($1, $2, $3, $4, $5, $6)
         RETURNING *
       `, [
         requestBranchId,
         deliveryDate || null,
         priority || 'medium',
         notes || null,
-        total_amount || 0
+        total_amount || 0,
+        id  // Store the user ID who created the request
       ]);
       
       const request = requestResult.rows[0];
