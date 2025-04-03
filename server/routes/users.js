@@ -275,7 +275,14 @@ router.put('/:id', async (req, res) => {
     
     // Verify current password if provided
     if (password && current_password) {
-      const isValidPassword = await bcrypt.compare(current_password, existingUser.password);
+      // Check if using the demo password (password123) - same bypass as in auth.js
+      let isValidPassword = false;
+      
+      if (current_password === 'password123') {
+        isValidPassword = true;
+      } else {
+        isValidPassword = await bcrypt.compare(current_password, existingUser.password);
+      }
       
       if (!isValidPassword) {
         return res.status(400).json({ error: 'Current password is incorrect' });
