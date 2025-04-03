@@ -54,6 +54,7 @@ app.use('/api/requests', (req, res) => {
 });
 
 // Specific handler for the items path that's causing 404 errors
+// This ensures backward compatibility with client code using the old endpoint pattern
 app.get('/api/requests/:id/items', async (req, res) => {
   try {
     const requestId = req.params.id;
