@@ -6,6 +6,9 @@ const router = express.Router();
 // Apply authentication middleware to all delivery routes
 router.use(authenticateToken);
 
+// Helper function to ensure timestamp formatting consistency for delivery routes
+// This ensures consistent datetime handling for received_at timestamps 
+
 // Get all deliveries
 router.get('/', async (req, res) => {
   try {
