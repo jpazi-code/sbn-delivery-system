@@ -17,6 +17,8 @@ import Alert from '@mui/joy/Alert';
 import IconButton from '@mui/joy/IconButton';
 import Avatar from '@mui/joy/Avatar';
 import { useAuth } from '../../contexts/AuthContext';
+import axios from 'axios';
+import CircularProgress from '@mui/joy/CircularProgress';
 
 // Icons
 import SaveIcon from '@mui/icons-material/Save';
@@ -186,13 +188,43 @@ const UserForm = ({ open, onClose, onSave, user, mode, loading, branches }) => {
     }
   };
   
-  const removeImage = () => {
-    setImageFile(null);
-    setImagePreview('');
-    setFormData(prevData => ({
-      ...prevData,
-      profile_picture_url: ''
-    }));
+  const removeImage = async () => {
+    try {
+      setUploadLoading(true);
+      setImageFile(null);
+      setImagePreview('');
+      
+      // If this is an edit and we have a user ID, directly update the profile picture to null
+      if (mode === 'edit' && user && user.id) {
+        console.log('Removing profile picture for user ID:', user.id);
+        
+        const response = await axios.put(`/api/users/${user.id}`, {
+          profile_picture_url: null
+        });
+        
+        console.log('Profile picture removal response:', response.data);
+        
+        // Update local form data
+        setFormData(prevData => ({
+          ...prevData,
+          profile_picture_url: null
+        }));
+        
+        // Refresh user data to ensure all parts of the app have the latest data
+        await refreshUserData(false);
+      } else {
+        // For new users, just clear the form field
+        setFormData(prevData => ({
+          ...prevData,
+          profile_picture_url: null
+        }));
+      }
+    } catch (err) {
+      console.error('Error removing profile picture:', err);
+      alert('Failed to remove profile picture');
+    } finally {
+      setUploadLoading(false);
+    }
   };
   
   const validateForm = () => {
@@ -341,9 +373,14 @@ const UserForm = ({ open, onClose, onSave, user, mode, loading, branches }) => {
                   right: -8,
                   boxShadow: 'sm'
                 }}
-                onClick={removeImage}
+                onClick={() => {
+                  if (!uploadLoading) {
+                    removeImage();
+                  }
+                }}
+                disabled={uploadLoading}
               >
-                <DeleteIcon />
+                {uploadLoading ? <CircularProgress size="sm" /> : <DeleteIcon />}
               </IconButton>
             </Box>
           ) : (

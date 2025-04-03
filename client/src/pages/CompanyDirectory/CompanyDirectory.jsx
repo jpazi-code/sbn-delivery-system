@@ -302,6 +302,15 @@ const CompanyDirectory = () => {
             mx: 'auto', 
             mb: 2
           }}
+          imgProps={{
+            crossOrigin: "anonymous",
+            referrerPolicy: "no-referrer",
+            loading: "eager",
+            onError: (e) => { 
+              console.error('Image load error:', e);
+              e.target.src = ''; // Clear source on error
+            }
+          }}
         />
       ) : (
         <Avatar
