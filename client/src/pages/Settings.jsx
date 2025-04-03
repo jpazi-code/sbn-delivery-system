@@ -131,6 +131,11 @@ const Settings = () => {
       setImageFile(null);
       setImagePreview('');
       
+      console.log('Removing profile picture for user ID:', user.id);
+      
+      // Notify user
+      setSuccess('Removing profile picture...');
+      
       // Make a direct API call to update only the profile_picture_url to null
       const response = await axios.put(`/api/users/${user.id}`, {
         profile_picture_url: null
@@ -150,7 +155,14 @@ const Settings = () => {
       setSuccess('Profile picture removed successfully');
     } catch (err) {
       console.error('Error removing profile picture:', err);
-      setError(err.response?.data?.error || 'Failed to remove profile picture');
+      const errorMsg = err.response?.data?.error || 'Failed to remove profile picture';
+      console.error('Error details:', errorMsg);
+      setError(errorMsg);
+      
+      // Restore preview if removal failed
+      if (user?.profile_picture_url) {
+        setImagePreview(user.profile_picture_url);
+      }
     } finally {
       setLoading(false);
     }
@@ -400,9 +412,14 @@ const Settings = () => {
                     right: -8,
                     boxShadow: 'sm'
                   }}
-                  onClick={removeImage}
+                  onClick={() => {
+                    if (!loading) {
+                      removeImage();
+                    }
+                  }}
+                  disabled={loading}
                 >
-                  <DeleteIcon />
+                  {loading ? <CircularProgress size="sm" /> : <DeleteIcon />}
                 </IconButton>
               </Box>
             ) : (
