@@ -100,8 +100,10 @@ const DeliveryDetails = () => {
         
         // Get request items if this delivery is linked to a request
         if (deliveryData.request_id) {
-          const itemsResponse = await axios.get(`/api/requests/${deliveryData.request_id}/items`)
-          setRequestItems(itemsResponse.data)
+          // Get the full request with items included
+          const requestResponse = await axios.get(`/api/delivery-requests/${deliveryData.request_id}`)
+          // Extract the items from the request response
+          setRequestItems(requestResponse.data.items || [])
         }
         
         setError(null)
