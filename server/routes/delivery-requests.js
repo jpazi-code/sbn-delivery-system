@@ -149,11 +149,39 @@ router.post('/', async (req, res) => {
       }
     }
 
+    console.log(`Creating delivery request by user ID: ${id}`);
+    if (!id) {
+      console.warn('Warning: User ID is not available in req.user');
+    }
+    
     // Start a transaction
-    const client = await db.query('BEGIN');
+    await db.query('BEGIN');
     
     try {
-      // Create the delivery request
+      // Always include created_by_id in the query, adding the column if it doesn't exist
+      try {
+        // First check if the column exists
+        const columnCheckResult = await db.query(`
+          SELECT column_name 
+          FROM information_schema.columns 
+          WHERE table_name = 'delivery_requests' 
+          AND column_name = 'created_by_id'
+        `);
+        
+        // If column doesn't exist, add it
+        if (columnCheckResult.rows.length === 0) {
+          console.log('Adding created_by_id column to delivery_requests table');
+          await db.query(`
+            ALTER TABLE delivery_requests 
+            ADD COLUMN created_by_id INTEGER REFERENCES users(id)
+          `);
+        }
+      } catch (columnError) {
+        console.error('Error checking/adding created_by_id column:', columnError);
+        // Continue even if column check fails - the insert will still work
+      }
+      
+      // Create the delivery request with created_by_id
       const requestResult = await db.query(`
         INSERT INTO delivery_requests (
           branch_id,
@@ -174,6 +202,7 @@ router.post('/', async (req, res) => {
       ]);
       
       const request = requestResult.rows[0];
+      console.log(`Created request #${request.id} with created_by_id: ${request.created_by_id || 'NULL'}`);
       
       // Insert all items
       for (const item of items) {
