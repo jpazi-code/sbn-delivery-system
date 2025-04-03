@@ -23,6 +23,10 @@ import Chip from '@mui/joy/Chip'
 import IconButton from '@mui/joy/IconButton'
 import Tooltip from '@mui/joy/Tooltip'
 import Grid from '@mui/joy/Grid'
+import Modal from '@mui/joy/Modal'
+import ModalDialog from '@mui/joy/ModalDialog'
+import ModalClose from '@mui/joy/ModalClose'
+import Stack from '@mui/joy/Stack'
 
 // Icons
 import SearchIcon from '@mui/icons-material/Search'
@@ -52,6 +56,8 @@ const BranchHistory = () => {
   const [timeframe, setTimeframe] = useState('month')
   const [branches, setBranches] = useState([])
   const [selectedBranch, setSelectedBranch] = useState(user?.role === 'branch' ? user?.branch_id : 'all')
+  const [selectedDelivery, setSelectedDelivery] = useState(null)
+  const [detailsModalOpen, setDetailsModalOpen] = useState(false)
   
   const isAdmin = user?.role === 'admin'
   const isBranch = user?.role === 'branch'
@@ -170,7 +176,11 @@ const BranchHistory = () => {
   
   // View delivery details
   const handleViewDetails = (id) => {
-    navigate(`/delivery-details/${id}`)
+    const delivery = deliveries.find(d => d.id === id);
+    if (delivery) {
+      setSelectedDelivery(delivery);
+      setDetailsModalOpen(true);
+    }
   }
   
   // Render status chip
@@ -440,6 +450,101 @@ const BranchHistory = () => {
           )}
         </>
       )}
+      
+      {/* Delivery Details Modal */}
+      <Modal open={detailsModalOpen} onClose={() => setDetailsModalOpen(false)}>
+        <ModalDialog size="lg">
+          <ModalClose />
+          <Typography level="title-lg">Delivery Details</Typography>
+          <Divider sx={{ my: 2 }} />
+          
+          {selectedDelivery && (
+            <Box sx={{ mt: 1 }}>
+              <Grid container spacing={2}>
+                <Grid xs={12} md={6}>
+                  <Typography level="title-sm" sx={{ mb: 1 }}>General Information</Typography>
+                  <Card variant="outlined" sx={{ mb: 2 }}>
+                    <CardContent>
+                      <Stack spacing={1}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <Typography level="body-sm">Tracking Number:</Typography>
+                          <Typography level="body-sm" fontWeight="bold">{selectedDelivery.tracking_number}</Typography>
+                        </Box>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <Typography level="body-sm">Status:</Typography>
+                          <Box>{renderStatusChip(selectedDelivery.status)}</Box>
+                        </Box>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <Typography level="body-sm">Branch:</Typography>
+                          <Typography level="body-sm" fontWeight="bold">{getBranchName(selectedDelivery.branch_id)}</Typography>
+                        </Box>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <Typography level="body-sm">Created:</Typography>
+                          <Typography level="body-sm" fontWeight="bold">
+                            {formatDate(selectedDelivery.created_at)}
+                          </Typography>
+                        </Box>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <Typography level="body-sm">Delivered:</Typography>
+                          <Typography level="body-sm" fontWeight="bold">
+                            {selectedDelivery.received_at ? formatDate(selectedDelivery.received_at) : 'Not delivered'}
+                          </Typography>
+                        </Box>
+                      </Stack>
+                    </CardContent>
+                  </Card>
+                </Grid>
+                
+                <Grid xs={12} md={6}>
+                  <Typography level="title-sm" sx={{ mb: 1 }}>Recipient Information</Typography>
+                  <Card variant="outlined" sx={{ mb: 2 }}>
+                    <CardContent>
+                      <Stack spacing={1}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <Typography level="body-sm">Name:</Typography>
+                          <Typography level="body-sm" fontWeight="bold">{selectedDelivery.recipient_name || 'N/A'}</Typography>
+                        </Box>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <Typography level="body-sm">Address:</Typography>
+                          <Typography level="body-sm" fontWeight="bold">{selectedDelivery.recipient_address || 'N/A'}</Typography>
+                        </Box>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <Typography level="body-sm">Phone:</Typography>
+                          <Typography level="body-sm" fontWeight="bold">{selectedDelivery.recipient_phone || 'N/A'}</Typography>
+                        </Box>
+                      </Stack>
+                    </CardContent>
+                  </Card>
+                </Grid>
+
+                <Grid xs={12}>
+                  <Typography level="title-sm" sx={{ mb: 1 }}>Package Information</Typography>
+                  <Card variant="outlined">
+                    <CardContent>
+                      <Stack spacing={1}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <Typography level="body-sm">Description:</Typography>
+                          <Typography level="body-sm" fontWeight="bold">{selectedDelivery.package_description || 'N/A'}</Typography>
+                        </Box>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <Typography level="body-sm">Weight:</Typography>
+                          <Typography level="body-sm" fontWeight="bold">{selectedDelivery.weight ? `${selectedDelivery.weight} kg` : 'N/A'}</Typography>
+                        </Box>
+                        {selectedDelivery.request_id && (
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <Typography level="body-sm">Request ID:</Typography>
+                            <Typography level="body-sm" fontWeight="bold">#{selectedDelivery.request_id}</Typography>
+                          </Box>
+                        )}
+                      </Stack>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              </Grid>
+            </Box>
+          )}
+        </ModalDialog>
+      </Modal>
     </Box>
   )
 }
