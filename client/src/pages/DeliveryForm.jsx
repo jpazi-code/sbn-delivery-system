@@ -222,16 +222,36 @@ const DeliveryForm = () => {
               
               // Find a branch user if available
               if (branchUsers.length > 0) {
-                const user = branchUsers.find(u => u.branch_id === branch.id)
+                // Look for a user who matches the request's created_by_id or recipient info
+                const requestCreatorId = response.data.created_by_id;
+                const requestedByName = response.data.requested_by || '';
+                const requestUsername = response.data.username || '';
+                
+                // First try to find the exact user who created the request
+                let user = branchUsers.find(u => u.id === requestCreatorId);
+                
+                // If not found, try to match by name or username
+                if (!user) {
+                  user = branchUsers.find(u => 
+                    u.branch_id === branch.id && 
+                    (u.full_name === requestedByName || u.username === requestUsername)
+                  );
+                }
+                
+                // If still not found, then fall back to the first user from that branch
+                if (!user) {
+                  user = branchUsers.find(u => u.branch_id === branch.id);
+                }
+                
                 if (user) {
-                  setSelectedUser(user)
+                  setSelectedUser(user);
                 }
               }
               
               // Pre-fill form with request data
               setFormData(prev => ({
                 ...prev,
-                recipient_name: selectedUser?.full_name || selectedUser?.username || '',
+                recipient_name: response.data.requested_by || selectedUser?.full_name || selectedUser?.username || '',
                 recipient_address: branch.address || '',
                 recipient_phone: branch.phone || '',
                 branch_id: branch.id,
