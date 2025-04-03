@@ -223,6 +223,7 @@ const Settings = () => {
       // If user wants to remove their profile picture
       if (formData.profile_picture_url_remove) {
         updateData.profile_picture_url = null;
+        console.log('Setting profile_picture_url to null:', updateData);
       }
       
       // Add password fields if provided
@@ -231,8 +232,14 @@ const Settings = () => {
         updateData.current_password = formData.current_password;
       }
       
+      // Log the final update data
+      console.log('Sending user update request with data:', updateData);
+      
       // Update profile
       const response = await axios.put(`/api/users/${user.id}`, updateData);
+      
+      // Log the response data
+      console.log('Server response data:', response.data);
       
       // Update user context with new data
       setUser({

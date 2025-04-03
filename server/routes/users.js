@@ -313,13 +313,17 @@ router.put('/:id', async (req, res) => {
     
     // Handle the case when profile_picture_url is explicitly set to null (for removal)
     if (profile_picture_url !== undefined) {
+      console.log('profile_picture_url value:', profile_picture_url);
+      
       if (profile_picture_url === null) {
         // For NULL values, we don't use parameterized query to ensure SQL NULL is used
         updates.push(`profile_picture_url = NULL`);
+        console.log('Added SQL update for NULL profile_picture_url');
       } else {
         updates.push(`profile_picture_url = $${paramIndex}`);
         values.push(profile_picture_url);
         paramIndex++;
+        console.log('Added parameterized update for profile_picture_url:', profile_picture_url);
       }
     }
     
@@ -391,6 +395,9 @@ router.put('/:id', async (req, res) => {
       WHERE id = $${paramIndex}
       RETURNING id, username, email, full_name, role, branch_id, phone, address, profile_picture_url, created_at
     `;
+    
+    console.log('Executing SQL query:', query);
+    console.log('With values:', values);
     
     const result = await db.query(query, values);
     
