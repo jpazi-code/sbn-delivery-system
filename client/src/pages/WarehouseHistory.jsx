@@ -130,7 +130,7 @@ const WarehouseHistory = () => {
       setRequestsLoading(true)
       
       // Get all branch requests
-      const response = await axios.get('/api/requests', {
+      const response = await axios.get('/api/delivery-requests', {
         params: {
           timeframe: requestTimeframe
         }
