@@ -53,7 +53,6 @@ const DeliveryDetails = () => {
   const [driver, setDriver] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [successMessage, setSuccessMessage] = useState(null)
   
   // Check if the user has sufficient access to view this delivery
   const checkAccess = (deliveryData) => {
