@@ -452,14 +452,32 @@ router.put('/:id/status', async (req, res) => {
       return res.status(404).json({ error: 'Delivery not found' });
     }
     
-    // Update only the status
-    const result = await db.query(`
+    const currentDelivery = checkResult.rows[0];
+    
+    // Set received_at timestamp if status is being changed to 'delivered'
+    let queryParams = [trimmedStatus, deliveryId];
+    let updateQuery = `
       UPDATE deliveries SET
         status = $1,
         updated_at = CURRENT_TIMESTAMP
+    `;
+    
+    // Add received_at and received_by if status is changing to delivered
+    if (trimmedStatus === 'delivered' && currentDelivery.status !== 'delivered') {
+      updateQuery += `,
+        received_at = CURRENT_TIMESTAMP,
+        received_by = $3
+      `;
+      queryParams.push(req.user.id);
+    }
+    
+    updateQuery += `
       WHERE id = $2
       RETURNING *
-    `, [trimmedStatus, deliveryId]);
+    `;
+    
+    // Update the delivery
+    const result = await db.query(updateQuery, queryParams);
     
     // Return full delivery with branch info
     const deliveryWithBranch = await db.query(`
