@@ -387,14 +387,17 @@ router.put('/:id/mark-pending-confirmation', async (req, res) => {
       return res.status(400).json({ message: 'Only in-transit deliveries can be marked as pending confirmation' });
     }
     
+    // Ensure we're using a consistent format for the status
+    const pendingConfirmationStatus = 'pending_confirmation';
+    
     // Update delivery status
     const updateResult = await db.query(
       `UPDATE deliveries 
-       SET status = 'pending_confirmation',
+       SET status = $1,
            updated_at = NOW()
-       WHERE id = $1
+       WHERE id = $2
        RETURNING *`,
-      [deliveryId]
+      [pendingConfirmationStatus, deliveryId]
     );
     
     // Get updated delivery with relations
@@ -433,6 +436,7 @@ router.put('/:id/confirm-receipt', async (req, res) => {
     }
     
     const delivery = deliveryResult.rows[0];
+    console.log('Delivery status from database:', delivery.status);
     
     // Check if user has permission (branch user or admin)
     if (req.user.role === 'branch') {
@@ -446,11 +450,16 @@ router.put('/:id/confirm-receipt', async (req, res) => {
       return res.status(403).json({ message: 'Access denied. Only branch staff or admin can confirm receipt.' });
     }
     
-    // Normalize the status for comparison (convert spaces to underscore, make lowercase)
-    const normalizedStatus = delivery.status.toLowerCase().replace(/\s+/g, '_');
+    // Normalize the status for comparison
+    const deliveryStatus = delivery.status.toLowerCase().trim();
+    const targetStatus = 'pending_confirmation';
     
-    // Only pending confirmation deliveries can be confirmed
-    if (normalizedStatus !== 'pending_confirmation') {
+    console.log(`Status comparison: '${deliveryStatus}' vs expected '${targetStatus}'`);
+    
+    // Check if the status is pending_confirmation (considering possible format differences)
+    if (deliveryStatus !== targetStatus && 
+        deliveryStatus !== 'pending confirmation' && 
+        !(deliveryStatus.includes('pending') && deliveryStatus.includes('confirm'))) {
       return res.status(400).json({ 
         message: 'Only deliveries pending confirmation can be confirmed as received',
         currentStatus: delivery.status
