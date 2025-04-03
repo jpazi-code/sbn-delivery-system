@@ -14,32 +14,52 @@ router.get('/', async (req, res) => {
     const { role, id, branch_id } = req.user;
     let result;
 
+    console.log(`Getting delivery requests for user: ${id}, role: ${role}`);
+
     if (role === 'admin' || role === 'warehouse') {
       // Admin and warehouse users can see all requests
       result = await db.query(`
-        SELECT dr.*, b.name as branch_name, 
-               creator.full_name as requested_by,
-               creator.username
+        SELECT 
+          dr.*,
+          b.name as branch_name,
+          COALESCE(
+            (SELECT full_name FROM users WHERE id = dr.created_by_id),
+            u.full_name
+          ) as requested_by,
+          COALESCE(
+            (SELECT username FROM users WHERE id = dr.created_by_id),
+            u.username
+          ) as username
         FROM delivery_requests dr
         JOIN branches b ON dr.branch_id = b.id
-        LEFT JOIN users creator ON creator.id = dr.created_by_id
+        JOIN users u ON u.branch_id = dr.branch_id
         ORDER BY dr.created_at DESC
       `);
     } else if (role === 'branch') {
       // Branch users can only see their own requests
       result = await db.query(`
-        SELECT dr.*, b.name as branch_name, 
-               creator.full_name as requested_by,
-               creator.username
+        SELECT 
+          dr.*,
+          b.name as branch_name,
+          COALESCE(
+            (SELECT full_name FROM users WHERE id = dr.created_by_id),
+            u.full_name
+          ) as requested_by,
+          COALESCE(
+            (SELECT username FROM users WHERE id = dr.created_by_id),
+            u.username
+          ) as username
         FROM delivery_requests dr
         JOIN branches b ON dr.branch_id = b.id
-        LEFT JOIN users creator ON creator.id = dr.created_by_id
+        JOIN users u ON u.branch_id = dr.branch_id
         WHERE dr.branch_id = $1
         ORDER BY dr.created_at DESC
       `, [branch_id]);
     } else {
       return res.status(403).json({ error: 'Unauthorized role for this operation' });
     }
+
+    console.log(`Found ${result.rows.length} requests`);
 
     // Add items for each delivery request
     const requests = result.rows;
@@ -66,13 +86,23 @@ router.get('/:id', async (req, res) => {
     const { id } = req.params;
     const { role, branch_id } = req.user;
 
+    console.log(`Getting delivery request details for ID: ${id}`);
+
     const result = await db.query(`
-      SELECT dr.*, b.name as branch_name, 
-             creator.full_name as requested_by,
-             creator.username
+      SELECT 
+        dr.*,
+        b.name as branch_name,
+        COALESCE(
+          (SELECT full_name FROM users WHERE id = dr.created_by_id),
+          u.full_name
+        ) as requested_by,
+        COALESCE(
+          (SELECT username FROM users WHERE id = dr.created_by_id),
+          u.username
+        ) as username
       FROM delivery_requests dr
       JOIN branches b ON dr.branch_id = b.id
-      LEFT JOIN users creator ON creator.id = dr.created_by_id
+      JOIN users u ON u.branch_id = dr.branch_id
       WHERE dr.id = $1
       LIMIT 1
     `, [id]);
@@ -232,8 +262,11 @@ router.post('/', async (req, res) => {
       
       // Get the full request with items
       const fullResult = await db.query(`
-        SELECT dr.*, b.name as branch_name,
-               creator.full_name as requested_by, creator.username
+        SELECT 
+          dr.*,
+          b.name as branch_name,
+          creator.full_name as requested_by,
+          creator.username
         FROM delivery_requests dr
         JOIN branches b ON dr.branch_id = b.id
         LEFT JOIN users creator ON creator.id = dr.created_by_id
@@ -241,6 +274,19 @@ router.post('/', async (req, res) => {
       `, [request.id]);
       
       const fullRequest = fullResult.rows[0];
+      
+      // Ensure we always have a requester name
+      if (!fullRequest.requested_by) {
+        const userResult = await db.query('SELECT full_name, username FROM users WHERE id = $1', [id]);
+        if (userResult.rows.length > 0) {
+          fullRequest.requested_by = userResult.rows[0].full_name;
+          fullRequest.username = userResult.rows[0].username;
+          
+          // Fix the database while we're at it - ensure the created_by_id is set
+          await db.query('UPDATE delivery_requests SET created_by_id = $1 WHERE id = $2 AND created_by_id IS NULL', 
+            [id, request.id]);
+        }
+      }
       
       // Get items for this request
       const itemsResult = await db.query(`
