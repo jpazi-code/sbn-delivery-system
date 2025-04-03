@@ -44,6 +44,33 @@ app.use('/api/delivery-requests', deliveryRequestsRoutes);
 app.use('/api/branches', branchesRoutes);
 app.use('/api/analytics', analyticsRoutes);
 
+// Add compatibility layer for old /api/requests endpoint
+app.use('/api/requests', (req, res) => {
+  // Rewrite the URL path to point to delivery-requests
+  req.url = req.url.replace('/api/requests', '/api/delivery-requests');
+  
+  // Forward to the correct handler
+  deliveryRequestsRoutes(req, res);
+});
+
+// Specific handler for the items path that's causing 404 errors
+app.get('/api/requests/:id/items', async (req, res) => {
+  try {
+    const requestId = req.params.id;
+    // Query the database directly to get items
+    const itemsResult = await db.query(`
+      SELECT * FROM delivery_request_items 
+      WHERE request_id = $1
+      ORDER BY id
+    `, [requestId]);
+    
+    res.status(200).json(itemsResult.rows);
+  } catch (error) {
+    console.error(`Error fetching items for request ${req.params.id}:`, error);
+    res.status(500).json({ error: 'Server error fetching items' });
+  }
+});
+
 // Basic route
 app.get('/api/health', (req, res) => {
   res.status(200).json({ status: 'ok', message: 'Server is running' });
