@@ -17,25 +17,25 @@ router.get('/', async (req, res) => {
     if (role === 'admin' || role === 'warehouse') {
       // Admin and warehouse users can see all requests
       result = await db.query(`
-        SELECT dr.*, b.name as branch_name, 
+        SELECT DISTINCT ON (dr.id) dr.*, b.name as branch_name, 
                branch_user.full_name as requested_by,
                branch_user.username
         FROM delivery_requests dr
         JOIN branches b ON dr.branch_id = b.id
         LEFT JOIN users branch_user ON branch_user.branch_id = dr.branch_id AND branch_user.role = 'branch'
-        ORDER BY dr.created_at DESC
+        ORDER BY dr.id, dr.created_at DESC
       `);
     } else if (role === 'branch') {
       // Branch users can only see their own requests
       result = await db.query(`
-        SELECT dr.*, b.name as branch_name, 
+        SELECT DISTINCT ON (dr.id) dr.*, b.name as branch_name, 
                branch_user.full_name as requested_by,
                branch_user.username
         FROM delivery_requests dr
         JOIN branches b ON dr.branch_id = b.id
         LEFT JOIN users branch_user ON branch_user.branch_id = dr.branch_id AND branch_user.role = 'branch'
         WHERE dr.branch_id = $1
-        ORDER BY dr.created_at DESC
+        ORDER BY dr.id, dr.created_at DESC
       `, [branch_id]);
     } else {
       return res.status(403).json({ error: 'Unauthorized role for this operation' });
@@ -67,13 +67,14 @@ router.get('/:id', async (req, res) => {
     const { role, branch_id } = req.user;
 
     const result = await db.query(`
-      SELECT dr.*, b.name as branch_name, 
+      SELECT DISTINCT ON (dr.id) dr.*, b.name as branch_name, 
              branch_user.full_name as requested_by,
              branch_user.username
       FROM delivery_requests dr
       JOIN branches b ON dr.branch_id = b.id
       LEFT JOIN users branch_user ON branch_user.branch_id = dr.branch_id AND branch_user.role = 'branch'
       WHERE dr.id = $1
+      ORDER BY dr.id, dr.created_at DESC
       LIMIT 1
     `, [id]);
 
@@ -201,11 +202,13 @@ router.post('/', async (req, res) => {
       
       // Get the full request with items
       const fullResult = await db.query(`
-        SELECT dr.*, b.name as branch_name
+        SELECT dr.*, b.name as branch_name,
+               u.full_name as requested_by, u.username
         FROM delivery_requests dr
         JOIN branches b ON dr.branch_id = b.id
-        WHERE dr.id = $1
-      `, [request.id]);
+        LEFT JOIN users u ON u.id = $1 AND u.role = 'branch'
+        WHERE dr.id = $2
+      `, [id, request.id]);
       
       const fullRequest = fullResult.rows[0];
       
@@ -299,13 +302,16 @@ router.put('/:id/status', async (req, res) => {
 
     // Get the full request with items
     const fullResult = await db.query(`
-      SELECT dr.*, u.username, b.name as branch_name, 
-             p.username as processor_username, p.full_name as processor_full_name
+      SELECT DISTINCT ON (dr.id) dr.*, b.name as branch_name, 
+             p.username as processor_username, p.full_name as processor_full_name,
+             branch_user.full_name as requested_by,
+             branch_user.username
       FROM delivery_requests dr
       JOIN branches b ON dr.branch_id = b.id
-      LEFT JOIN users u ON u.branch_id = dr.branch_id
       LEFT JOIN users p ON dr.processed_by = p.id
+      LEFT JOIN users branch_user ON branch_user.branch_id = dr.branch_id AND branch_user.role = 'branch'
       WHERE dr.id = $1
+      ORDER BY dr.id, dr.created_at DESC
     `, [id]);
     
     const fullRequest = fullResult.rows[0];
