@@ -514,7 +514,7 @@ const DeliveryRequestList = () => {
                     
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <PersonIcon fontSize="small" />
-                      <Typography level="body-sm">Requested by: {request.username}</Typography>
+                      <Typography level="body-sm">Requested by: {request.requested_by || request.username || 'Branch User'}</Typography>
                     </Box>
                     
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -618,7 +618,7 @@ const DeliveryRequestList = () => {
             
             <Box>
               <Typography level="body-sm" color="neutral">Requested By</Typography>
-              <Typography level="body-md">{selectedRequest?.username || 'Branch User 1'}</Typography>
+              <Typography level="body-md">{selectedRequest?.requested_by || selectedRequest?.username || 'Branch User'}</Typography>
             </Box>
             <Box>
               <Typography level="body-sm" color="neutral">Delivery Date</Typography>

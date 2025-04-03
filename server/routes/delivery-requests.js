@@ -17,22 +17,28 @@ router.get('/', async (req, res) => {
     if (role === 'admin' || role === 'warehouse') {
       // Admin and warehouse users can see all requests
       result = await db.query(`
-        SELECT dr.*, b.name as branch_name, u.username as requested_by
+        SELECT dr.*, b.name as branch_name, 
+               COALESCE(req_user.full_name, branch_user.full_name) as requested_by,
+               COALESCE(req_user.username, branch_user.username) as username
         FROM delivery_requests dr
         JOIN branches b ON dr.branch_id = b.id
-        LEFT JOIN users u ON u.id = $1
+        LEFT JOIN users req_user ON req_user.id = dr.requested_by_id
+        LEFT JOIN users branch_user ON branch_user.branch_id = dr.branch_id AND branch_user.role = 'branch'
         ORDER BY dr.created_at DESC
-      `, [id]);
+      `);
     } else if (role === 'branch') {
       // Branch users can only see their own requests
       result = await db.query(`
-        SELECT dr.*, b.name as branch_name, u.username as requested_by
+        SELECT dr.*, b.name as branch_name, 
+               COALESCE(req_user.full_name, branch_user.full_name) as requested_by,
+               COALESCE(req_user.username, branch_user.username) as username
         FROM delivery_requests dr
         JOIN branches b ON dr.branch_id = b.id
-        LEFT JOIN users u ON u.id = $1
-        WHERE dr.branch_id = $2
+        LEFT JOIN users req_user ON req_user.id = dr.requested_by_id
+        LEFT JOIN users branch_user ON branch_user.branch_id = dr.branch_id AND branch_user.role = 'branch'
+        WHERE dr.branch_id = $1
         ORDER BY dr.created_at DESC
-      `, [id, branch_id]);
+      `, [branch_id]);
     } else {
       return res.status(403).json({ error: 'Unauthorized role for this operation' });
     }
@@ -63,11 +69,15 @@ router.get('/:id', async (req, res) => {
     const { role, branch_id } = req.user;
 
     const result = await db.query(`
-      SELECT dr.*, b.name as branch_name, u.username as requested_by
+      SELECT dr.*, b.name as branch_name, 
+             COALESCE(req_user.full_name, branch_user.full_name) as requested_by,
+             COALESCE(req_user.username, branch_user.username) as username
       FROM delivery_requests dr
       JOIN branches b ON dr.branch_id = b.id
-      LEFT JOIN users u ON u.branch_id = dr.branch_id
+      LEFT JOIN users req_user ON req_user.id = dr.requested_by_id
+      LEFT JOIN users branch_user ON branch_user.branch_id = dr.branch_id AND branch_user.role = 'branch'
       WHERE dr.id = $1
+      LIMIT 1
     `, [id]);
 
     if (result.rows.length === 0) {
@@ -153,15 +163,17 @@ router.post('/', async (req, res) => {
           delivery_date,
           priority,
           notes,
-          total_amount
-        ) VALUES ($1, $2, $3, $4, $5)
+          total_amount,
+          requested_by_id
+        ) VALUES ($1, $2, $3, $4, $5, $6)
         RETURNING *
       `, [
         requestBranchId,
         deliveryDate || null,
         priority || 'medium',
         notes || null,
-        total_amount || 0
+        total_amount || 0,
+        id // Store the user ID of the requester
       ]);
       
       const request = requestResult.rows[0];
