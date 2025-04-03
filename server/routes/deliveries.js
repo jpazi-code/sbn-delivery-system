@@ -41,7 +41,8 @@ router.get('/branch', async (req, res) => {
         return res.status(400).json({ message: 'Invalid branch ID' });
       }
       
-      // Branch users can only see deliveries for their branch
+      // Branch users see ALL deliveries addressed to their branch
+      // regardless of who created them
       query = `
         SELECT d.*, b.name as branch_name, u.username as created_by_user,
                dr.request_status as request_status, dr.id as request_id
