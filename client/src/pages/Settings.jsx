@@ -123,17 +123,36 @@ const Settings = () => {
   };
   
   // Remove profile image
-  const removeImage = () => {
-    setImageFile(null);
-    setImagePreview('');
-    
-    // If we're clearing an existing profile picture (not a new upload),
-    // prepare to set profile_picture_url to null on save
-    if (user?.profile_picture_url && !imageFile) {
-      setFormData(prev => ({
-        ...prev,
-        profile_picture_url_remove: true
-      }));
+  const removeImage = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      setSuccess(null);
+      setImageFile(null);
+      setImagePreview('');
+      
+      // Make a direct API call to update only the profile_picture_url to null
+      const response = await axios.put(`/api/users/${user.id}`, {
+        profile_picture_url: null
+      });
+      
+      console.log('Profile picture removal response:', response.data);
+      
+      // Update user context with new data
+      setUser({
+        ...user,
+        profile_picture_url: null
+      });
+      
+      // Refresh user data to ensure all parts of the app have the latest data
+      await refreshUserData(false);
+      
+      setSuccess('Profile picture removed successfully');
+    } catch (err) {
+      console.error('Error removing profile picture:', err);
+      setError(err.response?.data?.error || 'Failed to remove profile picture');
+    } finally {
+      setLoading(false);
     }
   };
   
@@ -219,12 +238,6 @@ const Settings = () => {
         address: formData.address,
         profile_picture_url: profileUrl
       };
-      
-      // If user wants to remove their profile picture
-      if (formData.profile_picture_url_remove) {
-        updateData.profile_picture_url = null;
-        console.log('Setting profile_picture_url to null:', updateData);
-      }
       
       // Add password fields if provided
       if (formData.new_password && formData.current_password) {
