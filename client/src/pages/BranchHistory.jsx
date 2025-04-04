@@ -95,31 +95,18 @@ const BranchHistory = () => {
       
       // For branch users, always use their branch_id
       // For admin, use the selected branch or fetch all if "all" is selected
-      const branchId = isBranch ? user.branch_id : selectedBranch
+      let params = {}
       
-      // For admin with "all" selected, fetch all deliveries
-      if (isAdmin && selectedBranch === 'all') {
-        const response = await axios.get('/api/deliveries')
-        setDeliveries(response.data)
-        setFilteredDeliveries(response.data)
-        setError(null)
-        setLoading(false)
-        return
+      if (isBranch) {
+        // Branch users can only see their own branch's deliveries
+        params.branch_id = user.branch_id
+      } else if (isAdmin && selectedBranch !== 'all') {
+        // Admin users can filter by specific branch
+        params.branch_id = selectedBranch
       }
       
-      // For specific branch or branch user
-      if (!branchId) {
-        setDeliveries([])
-        setFilteredDeliveries([])
-        setLoading(false)
-        return
-      }
-      
-      const response = await axios.get('/api/deliveries', {
-        params: {
-          branch_id: branchId
-        }
-      })
+      // Make the API call with the appropriate parameters
+      const response = await axios.get('/api/deliveries', { params })
       
       setDeliveries(response.data)
       setFilteredDeliveries(response.data)

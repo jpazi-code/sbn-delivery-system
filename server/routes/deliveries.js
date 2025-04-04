@@ -12,10 +12,43 @@ router.use(authenticateToken);
 // Get all deliveries
 router.get('/', async (req, res) => {
   try {
+    // Check if there's a branch_id in the query parameters
+    const branchId = req.query.branch_id ? parseInt(req.query.branch_id, 10) : null;
+    
+    // Branch users can only see their own branch's deliveries
+    if (req.user.role === 'branch') {
+      const result = await db.query(`
+        SELECT d.*, u.username as created_by_user, b.name as branch_name 
+        FROM deliveries d
+        LEFT JOIN users u ON d.created_by = u.id
+        LEFT JOIN branches b ON d.branch_id = b.id
+        WHERE d.branch_id = $1
+        ORDER BY d.created_at DESC
+      `, [req.user.branch_id]);
+      
+      return res.status(200).json(result.rows);
+    }
+    
+    // Admin users can either see all deliveries or filter by branch_id
+    if (branchId) {
+      const result = await db.query(`
+        SELECT d.*, u.username as created_by_user, b.name as branch_name 
+        FROM deliveries d
+        LEFT JOIN users u ON d.created_by = u.id
+        LEFT JOIN branches b ON d.branch_id = b.id
+        WHERE d.branch_id = $1
+        ORDER BY d.created_at DESC
+      `, [branchId]);
+      
+      return res.status(200).json(result.rows);
+    }
+    
+    // No branch filter for admin - return all deliveries
     const result = await db.query(`
-      SELECT d.*, u.username as created_by_user 
+      SELECT d.*, u.username as created_by_user, b.name as branch_name
       FROM deliveries d
       LEFT JOIN users u ON d.created_by = u.id
+      LEFT JOIN branches b ON d.branch_id = b.id
       ORDER BY d.created_at DESC
     `);
     
