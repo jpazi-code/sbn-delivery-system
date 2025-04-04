@@ -22,8 +22,9 @@ import BusinessIcon from '@mui/icons-material/Business';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import PhoneIcon from '@mui/icons-material/Phone';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
+import LockResetIcon from '@mui/icons-material/LockReset';
 
-const UserDetails = ({ open, onClose, user, onEdit }) => {
+const UserDetails = ({ open, onClose, user, onEdit, isAdmin, currentUser, resetUserPassword }) => {
   if (!user) return null;
   
   // Get appropriate role icon and color
@@ -199,6 +200,22 @@ const UserDetails = ({ open, onClose, user, onEdit }) => {
               </Button>
             </Box>
           </>
+        )}
+        
+        {isAdmin && user.id !== currentUser.id && (
+          <Button
+            variant="soft"
+            color="warning"
+            startDecorator={<LockResetIcon />}
+            onClick={() => {
+              const newPassword = prompt("Enter new password for this user:");
+              if (newPassword) {
+                resetUserPassword(user.id, newPassword);
+              }
+            }}
+          >
+            Reset Password
+          </Button>
         )}
       </ModalDialog>
     </Modal>

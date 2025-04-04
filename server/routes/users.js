@@ -258,6 +258,14 @@ router.put('/:id', async (req, res) => {
       return res.status(403).json({ error: 'Unauthorized to update this user' });
     }
     
+    console.log('Update user request:', {
+      requesterId: userId,
+      requesterRole: role,
+      targetUserId: id,
+      passwordProvided: !!password,
+      currentPasswordProvided: !!current_password
+    });
+    
     // Only admin can change roles
     if (role !== 'admin' && newRole && newRole !== role) {
       return res.status(403).json({ error: 'Only admin can change user roles' });
@@ -343,11 +351,20 @@ router.put('/:id', async (req, res) => {
     
     // Handle password update
     if (password) {
+      console.log('Password update attempt:', { 
+        isAdmin: role === 'admin',
+        passwordLength: password.length,
+        hasCurrentPassword: !!current_password
+      });
+      
       if (role === 'admin' || (current_password && current_password === existingUser.password)) {
         // Store password as plaintext - allow admin to change without current password
         updates.push(`password = $${paramIndex}`);
         values.push(password);
         paramIndex++;
+        console.log('Password will be updated');
+      } else {
+        console.log('Password update condition not met');
       }
     }
     
@@ -429,6 +446,50 @@ router.put('/:id', async (req, res) => {
     res.status(200).json(user);
   } catch (error) {
     console.error('Update user error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Admin-only route to reset user's password
+router.post('/:id/reset-password', isAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { password } = req.body;
+    
+    console.log('Admin password reset request for user ID:', id);
+    
+    // Validation
+    if (!password) {
+      return res.status(400).json({ error: 'Password is required' });
+    }
+    
+    // Check if user exists
+    const userCheck = await db.query('SELECT id, username FROM users WHERE id = $1', [id]);
+    
+    if (userCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    const user = userCheck.rows[0];
+    console.log('Resetting password for user:', user.username);
+    
+    // Update password directly with plaintext
+    const result = await db.query(
+      `UPDATE users 
+       SET password = $1, updated_at = CURRENT_TIMESTAMP 
+       WHERE id = $2 
+       RETURNING id, username`,
+      [password, id]
+    );
+    
+    console.log('Password reset successful for user:', result.rows[0].username);
+    
+    res.status(200).json({ 
+      message: 'Password reset successful',
+      user: { id: result.rows[0].id, username: result.rows[0].username }
+    });
+  } catch (error) {
+    console.error('Password reset error:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });

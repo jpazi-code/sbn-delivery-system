@@ -195,6 +195,33 @@ const CompanyDirectory = () => {
     }
   };
   
+  // Handle password reset
+  const handlePasswordReset = async (userId, newPassword) => {
+    try {
+      setActionLoading(true);
+      
+      const response = await axios.post(`/api/users/${userId}/reset-password`, { 
+        password: newPassword 
+      });
+      
+      setSnackbar({
+        open: true,
+        message: `Password reset successfully for ${response.data.user.username}`,
+        severity: 'success'
+      });
+      
+    } catch (err) {
+      console.error('Error resetting password:', err);
+      setSnackbar({
+        open: true,
+        message: err.response?.data?.error || 'Failed to reset password',
+        severity: 'error'
+      });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+  
   // Open forms in different modes
   const openCreateForm = () => {
     setSelectedUser(null);
@@ -655,14 +682,17 @@ const CompanyDirectory = () => {
       
       {/* User Details Modal */}
       {selectedUser && (
-        <UserDetails 
-          open={detailsOpen} 
-          onClose={() => setDetailsOpen(false)} 
+        <UserDetails
+          open={detailsOpen}
+          onClose={() => setDetailsOpen(false)}
           user={selectedUser}
-          onEdit={isAdmin ? () => {
+          onEdit={isAdmin && selectedUser ? () => {
             setDetailsOpen(false);
             openEditForm(selectedUser);
           } : undefined}
+          isAdmin={isAdmin}
+          currentUser={user}
+          resetUserPassword={handlePasswordReset}
         />
       )}
       
