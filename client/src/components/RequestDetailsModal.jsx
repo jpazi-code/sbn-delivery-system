@@ -34,10 +34,10 @@ import ThumbUpIcon from '@mui/icons-material/ThumbUp'
 const RequestProgressTimeline = ({ status }) => {
   // Define the request process steps
   const steps = [
-    { id: 'pending', label: 'Pending', icon: <PendingIcon /> },
-    { id: 'approved', label: 'Approved', icon: <ThumbUpIcon /> },
-    { id: 'processing', label: 'Processing', icon: <WarehouseIcon /> },
-    { id: 'delivered', label: 'Delivered', icon: <CheckCircleIcon /> }
+    { id: 'pending', label: 'Pending', icon: <PendingIcon sx={{ color: 'white', fontSize: '1.8rem' }} /> },
+    { id: 'approved', label: 'Approved', icon: <ThumbUpIcon sx={{ color: 'white', fontSize: '1.8rem' }} /> },
+    { id: 'processing', label: 'Processing', icon: <WarehouseIcon sx={{ color: 'white', fontSize: '1.8rem' }} /> },
+    { id: 'delivered', label: 'Delivered', icon: <CheckCircleIcon sx={{ color: 'white', fontSize: '1.8rem' }} /> }
   ]
   
   // Determine current step index
@@ -124,10 +124,7 @@ const RequestProgressTimeline = ({ status }) => {
                       'neutral.200'),
                   zIndex: 2
                 }}>
-                  {React.cloneElement(step.icon, { 
-                    fontSize: 'large',
-                    style: { fontSize: '1.8rem' } 
-                  })}
+                  {step.icon}
                 </Box>
                 
                 {/* Step label */}
@@ -293,6 +290,23 @@ const RequestDetailsModal = ({ requestId, open, onClose }) => {
     )
   }
   
+  // Generate a reference number if none exists
+  const generateReferenceNumber = (request) => {
+    if (request.reference_number || request.reference_no) {
+      return request.reference_number || request.reference_no;
+    }
+    // Format: REQ-{BRANCH_INITIALS}-{ID}-{YEAR}
+    const branchName = branch?.name || 'UNK';
+    const branchInitials = branchName
+      .split(' ')
+      .map(word => word[0])
+      .join('')
+      .toUpperCase();
+    
+    const year = new Date(request.created_at).getFullYear();
+    return `REQ-${branchInitials}-${request.id}-${year}`;
+  }
+  
   return (
     <Modal open={open} onClose={onClose}>
       <ModalDialog size="lg">
@@ -323,7 +337,9 @@ const RequestDetailsModal = ({ requestId, open, onClose }) => {
                       </Box>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <Typography level="body-sm">Reference Number:</Typography>
-                        <Typography level="body-sm" fontWeight="bold">{request.reference_number}</Typography>
+                        <Typography level="body-md" fontWeight="bold" sx={{ color: 'primary.600' }}>
+                          {generateReferenceNumber(request)}
+                        </Typography>
                       </Box>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <Typography level="body-sm">Status:</Typography>

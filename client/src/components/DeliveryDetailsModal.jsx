@@ -39,11 +39,11 @@ import EngineeringIcon from '@mui/icons-material/Engineering'
 const DeliveryProgressTimeline = ({ status }) => {
   // Define the delivery process steps
   const steps = [
-    { id: 'pending', label: 'Pending', icon: <PendingIcon /> },
-    { id: 'preparing', label: 'Preparing', icon: <EngineeringIcon /> },
-    { id: 'loading', label: 'Loading', icon: <InventoryIcon /> },
-    { id: 'in_transit', label: 'In Transit', icon: <LocalShippingIcon /> },
-    { id: 'delivered', label: 'Delivered', icon: <CheckCircleIcon /> }
+    { id: 'pending', label: 'Pending', icon: <PendingIcon sx={{ color: 'white', fontSize: '1.8rem' }} /> },
+    { id: 'preparing', label: 'Preparing', icon: <EngineeringIcon sx={{ color: 'white', fontSize: '1.8rem' }} /> },
+    { id: 'loading', label: 'Loading', icon: <InventoryIcon sx={{ color: 'white', fontSize: '1.8rem' }} /> },
+    { id: 'in_transit', label: 'In Transit', icon: <LocalShippingIcon sx={{ color: 'white', fontSize: '1.8rem' }} /> },
+    { id: 'delivered', label: 'Delivered', icon: <CheckCircleIcon sx={{ color: 'white', fontSize: '1.8rem' }} /> }
   ]
   
   // Determine current step index
@@ -98,10 +98,7 @@ const DeliveryProgressTimeline = ({ status }) => {
                     'neutral.200',
                   zIndex: 2
                 }}>
-                  {React.cloneElement(step.icon, { 
-                    fontSize: 'large',
-                    style: { fontSize: '1.8rem' } 
-                  })}
+                  {step.icon}
                 </Box>
                 
                 {/* Step label */}
