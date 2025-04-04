@@ -1,6 +1,5 @@
 const express = require('express');
 const db = require('../db');
-const bcrypt = require('bcryptjs');
 const { authenticateToken, isAdmin } = require('../middleware/auth');
 const router = express.Router();
 
@@ -174,9 +173,8 @@ router.post('/', isAdmin, async (req, res) => {
       return res.status(400).json({ error: 'Username or email already exists' });
     }
     
-    // Hash password
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
+    // Use plaintext password instead of hashing
+    const plainTextPassword = password;
     
     // Check if branch_id is valid when provided
     let parsedBranchId = null;
@@ -212,7 +210,7 @@ router.post('/', isAdmin, async (req, res) => {
       RETURNING id, username, email, full_name, role, branch_id
     `, [
       username,
-      hashedPassword,
+      plainTextPassword,
       email,
       full_name || null,
       role,
@@ -284,14 +282,8 @@ router.put('/:id', async (req, res) => {
     
     // Verify current password if provided
     if (password && current_password) {
-      // Check if using the demo password (password123) - same bypass as in auth.js
-      let isValidPassword = false;
-      
-      if (current_password === 'password123') {
-        isValidPassword = true;
-      } else {
-        isValidPassword = await bcrypt.compare(current_password, existingUser.password);
-      }
+      // Direct string comparison instead of bcrypt
+      const isValidPassword = (current_password === existingUser.password);
       
       if (!isValidPassword) {
         return res.status(400).json({ error: 'Current password is incorrect' });
@@ -350,12 +342,9 @@ router.put('/:id', async (req, res) => {
     }
     
     if (password && current_password) {
-      // Hash new password
-      const salt = await bcrypt.genSalt(10);
-      const hashedPassword = await bcrypt.hash(password, salt);
-      
+      // Store password as plaintext
       updates.push(`password = $${paramIndex}`);
-      values.push(hashedPassword);
+      values.push(password);
       paramIndex++;
     }
     
