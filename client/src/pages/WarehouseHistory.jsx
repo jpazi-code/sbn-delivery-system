@@ -190,7 +190,7 @@ const WarehouseHistory = () => {
     
     // Apply status filter
     if (requestStatusFilter !== 'all') {
-      result = result.filter(request => request.status === requestStatusFilter)
+      result = result.filter(request => request.request_status === requestStatusFilter)
     }
     
     // Apply search filter
@@ -318,7 +318,7 @@ const WarehouseHistory = () => {
         size="sm"
         sx={{ textTransform: 'capitalize' }}
       >
-        {status}
+        {status?.replace('_', ' ') || 'Unknown'}
       </Chip>
     )
   }
@@ -660,7 +660,7 @@ const WarehouseHistory = () => {
                               {request.notes?.length > 50 ? '...' : ''}
                             </Typography>
                           </td>
-                          <td>{renderRequestStatusChip(request.status)}</td>
+                          <td>{renderRequestStatusChip(request.request_status)}</td>
                           <td>{formatCurrency(request.total_amount)}</td>
                           <td>{formatDate(request.created_at)}</td>
                           <td>

@@ -57,13 +57,18 @@ const DeliveryProgressTimeline = ({ status }) => {
   return (
     <Card variant="outlined" sx={{ mb: 3 }}>
       <CardContent>
-        <Box sx={{ width: '100%', overflow: 'auto' }}>
+        <Box sx={{ 
+          width: '100%', 
+          display: 'flex',
+          justifyContent: 'center'
+        }}>
           <Box sx={{ 
             display: 'flex', 
-            alignItems: 'center', 
+            alignItems: 'center',
             justifyContent: 'space-between',
-            minWidth: 550, // Ensure enough space for all steps
-            px: 2 
+            width: '100%',
+            maxWidth: '700px',
+            py: 3
           }}>
             {steps.map((step, index) => (
               <Box key={step.id} sx={{ 
@@ -71,12 +76,13 @@ const DeliveryProgressTimeline = ({ status }) => {
                 flexDirection: 'column', 
                 alignItems: 'center',
                 position: 'relative',
-                width: index === steps.length - 1 ? 'auto' : '100%'
+                flex: 1,
+                textAlign: 'center'
               }}>
                 {/* Step circle with icon */}
                 <Box sx={{ 
-                  width: 40, 
-                  height: 40, 
+                  width: 60, 
+                  height: 60, 
                   borderRadius: '50%', 
                   display: 'flex', 
                   alignItems: 'center', 
@@ -85,17 +91,25 @@ const DeliveryProgressTimeline = ({ status }) => {
                     (index === currentStepIndex ? 'primary.500' : 'success.500') : 
                     'neutral.200',
                   color: index <= currentStepIndex ? 'white' : 'text.secondary',
+                  boxShadow: '0 4px 8px rgba(0,0,0,0.15)',
+                  border: '3px solid',
+                  borderColor: index <= currentStepIndex ? 
+                    (index === currentStepIndex ? 'primary.500' : 'success.500') : 
+                    'neutral.200',
                   zIndex: 2
                 }}>
-                  {step.icon}
+                  {React.cloneElement(step.icon, { 
+                    fontSize: 'large',
+                    style: { fontSize: '1.8rem' } 
+                  })}
                 </Box>
                 
                 {/* Step label */}
                 <Typography 
-                  level="body-sm" 
+                  level="body-md" 
                   fontWeight={index === currentStepIndex ? 'bold' : 'normal'}
                   sx={{ 
-                    mt: 1,
+                    mt: 1.5,
                     color: index <= currentStepIndex ? 
                       (index === currentStepIndex ? 'primary.600' : 'success.600') : 
                       'text.secondary'
@@ -108,10 +122,10 @@ const DeliveryProgressTimeline = ({ status }) => {
                 {index < steps.length - 1 && (
                   <Box sx={{ 
                     position: 'absolute',
-                    top: 20,
+                    top: 30,
                     left: '50%',
-                    right: '-50%',
-                    height: 2,
+                    width: '100%',
+                    height: 4,
                     bgcolor: index < currentStepIndex ? 'success.500' : 'neutral.200',
                     zIndex: 1
                   }} />

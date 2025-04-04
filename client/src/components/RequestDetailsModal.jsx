@@ -61,7 +61,8 @@ const RequestProgressTimeline = ({ status }) => {
       variant="outlined" 
       sx={{ 
         mb: 3, 
-        borderColor: isRejected ? 'danger.300' : undefined 
+        borderColor: isRejected ? 'danger.300' : undefined,
+        borderWidth: isRejected ? 2 : 1
       }}
     >
       <CardContent>
@@ -70,19 +71,24 @@ const RequestProgressTimeline = ({ status }) => {
             level="body-sm" 
             color="danger" 
             fontWeight="bold" 
-            sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}
+            sx={{ mb: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}
           >
             <InfoIcon fontSize="small" /> This request was rejected
           </Typography>
         )}
         
-        <Box sx={{ width: '100%', overflow: 'auto' }}>
+        <Box sx={{ 
+          width: '100%', 
+          display: 'flex',
+          justifyContent: 'center'
+        }}>
           <Box sx={{ 
             display: 'flex', 
-            alignItems: 'center', 
+            alignItems: 'center',
             justifyContent: 'space-between',
-            minWidth: 450, // Ensure enough space for all steps
-            px: 2 
+            width: '100%',
+            maxWidth: '700px',
+            py: 3
           }}>
             {steps.map((step, index) => (
               <Box key={step.id} sx={{ 
@@ -90,12 +96,13 @@ const RequestProgressTimeline = ({ status }) => {
                 flexDirection: 'column', 
                 alignItems: 'center',
                 position: 'relative',
-                width: index === steps.length - 1 ? 'auto' : '100%'
+                flex: 1,
+                textAlign: 'center'
               }}>
                 {/* Step circle with icon */}
                 <Box sx={{ 
-                  width: 40, 
-                  height: 40, 
+                  width: 60, 
+                  height: 60, 
                   borderRadius: '50%', 
                   display: 'flex', 
                   alignItems: 'center', 
@@ -108,21 +115,31 @@ const RequestProgressTimeline = ({ status }) => {
                   color: isRejected ?
                     (index === 0 ? 'white' : 'text.secondary') :
                     (index <= currentStepIndex ? 'white' : 'text.secondary'),
+                  boxShadow: '0 4px 8px rgba(0,0,0,0.15)',
+                  border: '3px solid',
+                  borderColor: isRejected ? 
+                    (index === 0 ? 'danger.500' : 'neutral.200') :
+                    (index <= currentStepIndex ? 
+                      (index === currentStepIndex ? 'primary.500' : 'success.500') : 
+                      'neutral.200'),
                   zIndex: 2
                 }}>
-                  {step.icon}
+                  {React.cloneElement(step.icon, { 
+                    fontSize: 'large',
+                    style: { fontSize: '1.8rem' } 
+                  })}
                 </Box>
                 
                 {/* Step label */}
                 <Typography 
-                  level="body-sm" 
+                  level="body-md" 
                   fontWeight={
                     isRejected ? 
                       (index === 0 ? 'bold' : 'normal') :
                       (index === currentStepIndex ? 'bold' : 'normal')
                   }
                   sx={{ 
-                    mt: 1,
+                    mt: 1.5,
                     color: isRejected ?
                       (index === 0 ? 'danger.600' : 'text.secondary') :
                       (index <= currentStepIndex ? 
@@ -137,10 +154,10 @@ const RequestProgressTimeline = ({ status }) => {
                 {index < steps.length - 1 && (
                   <Box sx={{ 
                     position: 'absolute',
-                    top: 20,
+                    top: 30,
                     left: '50%',
-                    right: '-50%',
-                    height: 2,
+                    width: '100%',
+                    height: 4,
                     bgcolor: isRejected ? 
                       'neutral.200' :
                       (index < currentStepIndex ? 'success.500' : 'neutral.200'),
