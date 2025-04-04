@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import axios from 'axios'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -182,6 +182,7 @@ const DeliveryDetailsModal = ({ deliveryId, open, onClose }) => {
           return
         }
         
+        console.log('Delivery data:', deliveryData)
         setDelivery(deliveryData)
         
         // Get branch information

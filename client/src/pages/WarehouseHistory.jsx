@@ -225,6 +225,7 @@ const WarehouseHistory = () => {
   const handleViewDeliveryDetails = (id) => {
     const delivery = deliveries.find(d => d.id === id);
     if (delivery) {
+      console.log('Selected delivery:', delivery);
       setSelectedDelivery(delivery);
       setDetailsModalOpen(true);
     }
@@ -232,8 +233,9 @@ const WarehouseHistory = () => {
   
   // View request details
   const handleViewRequestDetails = (id) => {
-    setSelectedRequestId(id)
-    setRequestDetailsModalOpen(true)
+    console.log('Selected request ID:', id);
+    setSelectedRequestId(id);
+    setRequestDetailsModalOpen(true);
   }
   
   // Render delivery status chip

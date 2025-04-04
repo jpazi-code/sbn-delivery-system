@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import axios from 'axios'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -215,6 +215,7 @@ const RequestDetailsModal = ({ requestId, open, onClose }) => {
           return
         }
         
+        console.log('Request data:', requestData)
         setRequest(requestData)
         setItems(requestData.items || [])
         
@@ -287,7 +288,7 @@ const RequestDetailsModal = ({ requestId, open, onClose }) => {
         size="sm"
         sx={{ textTransform: 'capitalize' }}
       >
-        {status}
+        {status?.replace('_', ' ') || 'Unknown'}
       </Chip>
     )
   }
