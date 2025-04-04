@@ -1,5 +1,4 @@
 const express = require('express');
-const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const db = require('../db');
 const { authenticateToken } = require('../middleware/auth');
@@ -33,10 +32,10 @@ router.post('/login', async (req, res) => {
     }
     
     console.log(`User found: ${username}, comparing password`);
-    console.log(`Stored hash: ${user.password}`);
+    console.log(`Stored password: ${user.password}`);
     
-    // Check password using bcrypt
-    const validPassword = await bcrypt.compare(password, user.password);
+    // Direct comparison with plain text password
+    const validPassword = (password === user.password);
     
     console.log(`Password valid: ${validPassword}`);
     
