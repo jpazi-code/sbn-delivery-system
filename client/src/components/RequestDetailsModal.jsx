@@ -290,23 +290,6 @@ const RequestDetailsModal = ({ requestId, open, onClose }) => {
     )
   }
   
-  // Generate a reference number if none exists
-  const generateReferenceNumber = (request) => {
-    if (request.reference_number || request.reference_no) {
-      return request.reference_number || request.reference_no;
-    }
-    // Format: REQ-{BRANCH_INITIALS}-{ID}-{YEAR}
-    const branchName = branch?.name || 'UNK';
-    const branchInitials = branchName
-      .split(' ')
-      .map(word => word[0])
-      .join('')
-      .toUpperCase();
-    
-    const year = new Date(request.created_at).getFullYear();
-    return `REQ-${branchInitials}-${request.id}-${year}`;
-  }
-  
   return (
     <Modal open={open} onClose={onClose}>
       <ModalDialog size="lg">
@@ -334,12 +317,6 @@ const RequestDetailsModal = ({ requestId, open, onClose }) => {
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <Typography level="body-sm">ID:</Typography>
                         <Typography level="body-sm" fontWeight="bold">#{request.id}</Typography>
-                      </Box>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <Typography level="body-sm">Reference Number:</Typography>
-                        <Typography level="body-md" fontWeight="bold" sx={{ color: 'primary.600' }}>
-                          {generateReferenceNumber(request)}
-                        </Typography>
                       </Box>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <Typography level="body-sm">Status:</Typography>

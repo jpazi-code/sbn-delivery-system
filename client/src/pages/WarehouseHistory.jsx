@@ -346,23 +346,6 @@ const WarehouseHistory = () => {
     return branch ? branch.name : 'Unknown Branch'
   }
   
-  // Generate a reference number if none exists
-  const generateReferenceNumber = (request) => {
-    if (request.reference_number || request.reference_no) {
-      return request.reference_number || request.reference_no;
-    }
-    // Format: REQ-{BRANCH_INITIALS}-{ID}-{YEAR}
-    const branchName = getBranchName(request.branch_id);
-    const branchInitials = branchName
-      .split(' ')
-      .map(word => word[0])
-      .join('')
-      .toUpperCase();
-    
-    const year = new Date(request.created_at).getFullYear();
-    return `REQ-${branchInitials}-${request.id}-${year}`;
-  }
-  
   return (
     <Box sx={{ py: 2 }}>
       <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -658,7 +641,6 @@ const WarehouseHistory = () => {
                     <thead>
                       <tr>
                         <th style={{ width: 80 }}>ID</th>
-                        <th style={{ width: 160 }}>Reference</th>
                         <th style={{ width: 140 }}>Branch</th>
                         <th>Notes</th>
                         <th style={{ width: 120 }}>Status</th>
@@ -673,11 +655,6 @@ const WarehouseHistory = () => {
                         return (
                         <tr key={request.id}>
                           <td>{request.id}</td>
-                          <td>
-                            <Typography level="body-sm" fontWeight="bold" sx={{ color: 'primary.500' }}>
-                              {generateReferenceNumber(request)}
-                            </Typography>
-                          </td>
                           <td>{getBranchName(request.branch_id)}</td>
                           <td>
                             <Typography level="body-sm">
