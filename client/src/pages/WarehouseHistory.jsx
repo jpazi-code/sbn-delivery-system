@@ -245,34 +245,34 @@ const WarehouseHistory = () => {
     switch (status) {
       case 'delivered':
         color = 'success'
-        icon = <CheckCircleIcon />
+        icon = <CheckCircleIcon sx={{ color: 'white' }} />
         break
       case 'in_transit':
         color = 'primary'
-        icon = <LocalShippingIcon />
+        icon = <LocalShippingIcon sx={{ color: 'white' }} />
         break
       case 'pending':
         color = 'warning'
-        icon = <PendingIcon />
+        icon = <PendingIcon sx={{ color: 'white' }} />
         break
       case 'preparing':
       case 'loading':
         color = 'neutral'
-        icon = <WarehouseIcon />
+        icon = <WarehouseIcon sx={{ color: 'white' }} />
         break
       case 'cancelled':
         color = 'danger'
-        icon = <InfoIcon />
+        icon = <InfoIcon sx={{ color: 'white' }} />
         break
       default:
         color = 'neutral'
-        icon = <InfoIcon />
+        icon = <InfoIcon sx={{ color: 'white' }} />
     }
     
     return (
       <Chip
         color={color}
-        variant="soft"
+        variant="solid"
         startDecorator={icon}
         size="sm"
         sx={{ textTransform: 'capitalize' }}
@@ -289,33 +289,33 @@ const WarehouseHistory = () => {
     switch (status) {
       case 'approved':
         color = 'success'
-        icon = <CheckCircleIcon />
+        icon = <CheckCircleIcon sx={{ color: 'white' }} />
         break
       case 'pending':
         color = 'warning'
-        icon = <PendingIcon />
+        icon = <PendingIcon sx={{ color: 'white' }} />
         break
       case 'processing':
         color = 'primary'
-        icon = <WarehouseIcon />
+        icon = <WarehouseIcon sx={{ color: 'white' }} />
         break
       case 'delivered':
         color = 'success'
-        icon = <LocalShippingIcon />
+        icon = <LocalShippingIcon sx={{ color: 'white' }} />
         break
       case 'rejected':
         color = 'danger'
-        icon = <InfoIcon />
+        icon = <InfoIcon sx={{ color: 'white' }} />
         break
       default:
         color = 'neutral'
-        icon = <InfoIcon />
+        icon = <InfoIcon sx={{ color: 'white' }} />
     }
     
     return (
       <Chip
         color={color}
-        variant="soft"
+        variant="solid"
         startDecorator={icon}
         size="sm"
         sx={{ textTransform: 'capitalize' }}
@@ -654,7 +654,11 @@ const WarehouseHistory = () => {
                       {filteredRequests.map(request => (
                         <tr key={request.id}>
                           <td>{request.id}</td>
-                          <td>{request.reference_number}</td>
+                          <td>
+                            <Typography level="body-sm" fontWeight="bold">
+                              {request.reference_number}
+                            </Typography>
+                          </td>
                           <td>{getBranchName(request.branch_id)}</td>
                           <td>
                             <Typography level="body-sm">

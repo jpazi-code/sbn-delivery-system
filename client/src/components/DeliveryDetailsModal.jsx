@@ -237,34 +237,34 @@ const DeliveryDetailsModal = ({ deliveryId, open, onClose }) => {
     switch (status) {
       case 'delivered':
         color = 'success'
-        icon = <CheckCircleIcon />
+        icon = <CheckCircleIcon sx={{ color: 'white' }} />
         break
       case 'in_transit':
         color = 'primary'
-        icon = <LocalShippingIcon />
+        icon = <LocalShippingIcon sx={{ color: 'white' }} />
         break
       case 'pending':
         color = 'warning'
-        icon = <PendingIcon />
+        icon = <PendingIcon sx={{ color: 'white' }} />
         break
       case 'preparing':
       case 'loading':
         color = 'neutral'
-        icon = <WarehouseIcon />
+        icon = <WarehouseIcon sx={{ color: 'white' }} />
         break
       case 'cancelled':
         color = 'danger'
-        icon = <InfoIcon />
+        icon = <InfoIcon sx={{ color: 'white' }} />
         break
       default:
         color = 'neutral'
-        icon = <InfoIcon />
+        icon = <InfoIcon sx={{ color: 'white' }} />
     }
     
     return (
       <Chip
         color={color}
-        variant="soft"
+        variant="solid"
         startDecorator={icon}
         size="sm"
         sx={{ textTransform: 'capitalize' }}

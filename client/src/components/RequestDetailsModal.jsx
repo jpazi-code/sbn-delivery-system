@@ -257,33 +257,33 @@ const RequestDetailsModal = ({ requestId, open, onClose }) => {
     switch (status) {
       case 'approved':
         color = 'success'
-        icon = <CheckCircleIcon />
+        icon = <CheckCircleIcon sx={{ color: 'white' }} />
         break
       case 'pending':
         color = 'warning'
-        icon = <PendingIcon />
+        icon = <PendingIcon sx={{ color: 'white' }} />
         break
       case 'processing':
         color = 'primary'
-        icon = <WarehouseIcon />
+        icon = <WarehouseIcon sx={{ color: 'white' }} />
         break
       case 'delivered':
         color = 'success'
-        icon = <LocalShippingIcon />
+        icon = <LocalShippingIcon sx={{ color: 'white' }} />
         break
       case 'rejected':
         color = 'danger'
-        icon = <InfoIcon />
+        icon = <InfoIcon sx={{ color: 'white' }} />
         break
       default:
         color = 'neutral'
-        icon = <InfoIcon />
+        icon = <InfoIcon sx={{ color: 'white' }} />
     }
     
     return (
       <Chip
         color={color}
-        variant="soft"
+        variant="solid"
         startDecorator={icon}
         size="sm"
         sx={{ textTransform: 'capitalize' }}
