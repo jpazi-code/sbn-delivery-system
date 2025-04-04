@@ -35,15 +35,8 @@ router.post('/login', async (req, res) => {
     console.log(`User found: ${username}, comparing password`);
     console.log(`Stored hash: ${user.password}`);
     
-    // Check password - password123 works for all demo accounts
-    let validPassword = false;
-    
-    if (password === 'password123') {
-      validPassword = true;
-    } else {
-      // Try regular bcrypt comparison as fallback
-      validPassword = await bcrypt.compare(password, user.password);
-    }
+    // Check password using bcrypt
+    const validPassword = await bcrypt.compare(password, user.password);
     
     console.log(`Password valid: ${validPassword}`);
     

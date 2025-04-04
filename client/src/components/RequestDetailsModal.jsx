@@ -16,7 +16,6 @@ import CircularProgress from '@mui/joy/CircularProgress'
 import Stack from '@mui/joy/Stack'
 import Chip from '@mui/joy/Chip'
 import Alert from '@mui/joy/Alert'
-import AspectRatio from '@mui/joy/AspectRatio'
 import List from '@mui/joy/List'
 import ListItem from '@mui/joy/ListItem'
 import ListItemContent from '@mui/joy/ListItemContent'
@@ -28,41 +27,61 @@ import InfoIcon from '@mui/icons-material/Info'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import PendingIcon from '@mui/icons-material/Pending'
 import WarehouseIcon from '@mui/icons-material/Warehouse'
-import InventoryIcon from '@mui/icons-material/Inventory'
-import ScaleIcon from '@mui/icons-material/Scale'
-import PriorityHighIcon from '@mui/icons-material/PriorityHigh'
 import BusinessIcon from '@mui/icons-material/Business'
-import ReceiptIcon from '@mui/icons-material/Receipt'
-import EngineeringIcon from '@mui/icons-material/Engineering'
+import ThumbUpIcon from '@mui/icons-material/ThumbUp'
 
-// Delivery progress timeline component
-const DeliveryProgressTimeline = ({ status }) => {
-  // Define the delivery process steps
+// Request progress timeline component
+const RequestProgressTimeline = ({ status }) => {
+  // Define the request process steps
   const steps = [
     { id: 'pending', label: 'Pending', icon: <PendingIcon /> },
-    { id: 'preparing', label: 'Preparing', icon: <EngineeringIcon /> },
-    { id: 'loading', label: 'Loading', icon: <InventoryIcon /> },
-    { id: 'in_transit', label: 'In Transit', icon: <LocalShippingIcon /> },
+    { id: 'approved', label: 'Approved', icon: <ThumbUpIcon /> },
+    { id: 'processing', label: 'Processing', icon: <WarehouseIcon /> },
     { id: 'delivered', label: 'Delivered', icon: <CheckCircleIcon /> }
   ]
   
   // Determine current step index
   const getCurrentStepIndex = () => {
-    const index = steps.findIndex(step => step.id === status)
-    return index >= 0 ? index : 0 // Default to first step if status not found
+    const statusMap = {
+      'pending': 0,
+      'approved': 1,
+      'processing': 2,
+      'delivered': 3,
+      'rejected': 0 // For rejected, we show as pending with different styling
+    }
+    
+    return statusMap[status] !== undefined ? statusMap[status] : 0
   }
   
   const currentStepIndex = getCurrentStepIndex()
+  const isRejected = status === 'rejected'
   
   return (
-    <Card variant="outlined" sx={{ mb: 3 }}>
+    <Card 
+      variant="outlined" 
+      sx={{ 
+        mb: 3, 
+        borderColor: isRejected ? 'danger.300' : undefined 
+      }}
+    >
       <CardContent>
+        {isRejected && (
+          <Typography 
+            level="body-sm" 
+            color="danger" 
+            fontWeight="bold" 
+            sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}
+          >
+            <InfoIcon fontSize="small" /> This request was rejected
+          </Typography>
+        )}
+        
         <Box sx={{ width: '100%', overflow: 'auto' }}>
           <Box sx={{ 
             display: 'flex', 
             alignItems: 'center', 
             justifyContent: 'space-between',
-            minWidth: 550, // Ensure enough space for all steps
+            minWidth: 450, // Ensure enough space for all steps
             px: 2 
           }}>
             {steps.map((step, index) => (
@@ -81,10 +100,14 @@ const DeliveryProgressTimeline = ({ status }) => {
                   display: 'flex', 
                   alignItems: 'center', 
                   justifyContent: 'center',
-                  bgcolor: index <= currentStepIndex ? 
-                    (index === currentStepIndex ? 'primary.500' : 'success.500') : 
-                    'neutral.200',
-                  color: index <= currentStepIndex ? 'white' : 'text.secondary',
+                  bgcolor: isRejected ? 
+                    (index === 0 ? 'danger.500' : 'neutral.200') :
+                    (index <= currentStepIndex ? 
+                      (index === currentStepIndex ? 'primary.500' : 'success.500') : 
+                      'neutral.200'),
+                  color: isRejected ?
+                    (index === 0 ? 'white' : 'text.secondary') :
+                    (index <= currentStepIndex ? 'white' : 'text.secondary'),
                   zIndex: 2
                 }}>
                   {step.icon}
@@ -93,15 +116,21 @@ const DeliveryProgressTimeline = ({ status }) => {
                 {/* Step label */}
                 <Typography 
                   level="body-sm" 
-                  fontWeight={index === currentStepIndex ? 'bold' : 'normal'}
+                  fontWeight={
+                    isRejected ? 
+                      (index === 0 ? 'bold' : 'normal') :
+                      (index === currentStepIndex ? 'bold' : 'normal')
+                  }
                   sx={{ 
                     mt: 1,
-                    color: index <= currentStepIndex ? 
-                      (index === currentStepIndex ? 'primary.600' : 'success.600') : 
-                      'text.secondary'
+                    color: isRejected ?
+                      (index === 0 ? 'danger.600' : 'text.secondary') :
+                      (index <= currentStepIndex ? 
+                        (index === currentStepIndex ? 'primary.600' : 'success.600') : 
+                        'text.secondary')
                   }}
                 >
-                  {step.label}
+                  {index === 0 && isRejected ? 'Rejected' : step.label}
                 </Typography>
                 
                 {/* Connecting line */}
@@ -112,7 +141,9 @@ const DeliveryProgressTimeline = ({ status }) => {
                     left: '50%',
                     right: '-50%',
                     height: 2,
-                    bgcolor: index < currentStepIndex ? 'success.500' : 'neutral.200',
+                    bgcolor: isRejected ? 
+                      'neutral.200' :
+                      (index < currentStepIndex ? 'success.500' : 'neutral.200'),
                     zIndex: 1
                   }} />
                 )}
@@ -125,82 +156,68 @@ const DeliveryProgressTimeline = ({ status }) => {
   )
 }
 
-const DeliveryDetailsModal = ({ deliveryId, open, onClose }) => {
+const RequestDetailsModal = ({ requestId, open, onClose }) => {
   const { user } = useAuth()
   
-  const [delivery, setDelivery] = useState(null)
-  const [requestItems, setRequestItems] = useState([])
+  const [request, setRequest] = useState(null)
+  const [items, setItems] = useState([])
   const [branch, setBranch] = useState(null)
-  const [driver, setDriver] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   
-  // Check if the user has sufficient access to view this delivery
-  const checkAccess = (deliveryData) => {
+  // Check if the user has sufficient access to view this request
+  const checkAccess = (requestData) => {
     if (!user) return false
     if (user.role === 'admin') return true
     if (user.role === 'warehouse') return true
     
-    // Branch users can only view deliveries for their branch
+    // Branch users can only view requests for their branch
     if (user.role === 'branch') {
-      return deliveryData.branch_id === user.branch_id
+      return requestData.branch_id === user.branch_id
     }
     
     return false
   }
   
-  // Fetch delivery data
+  // Fetch request data
   useEffect(() => {
-    if (!open || !deliveryId) return
+    if (!open || !requestId) return
     
-    const fetchDeliveryData = async () => {
+    const fetchRequestData = async () => {
       try {
         setLoading(true)
         
-        // Get delivery details
-        const deliveryResponse = await axios.get(`/api/deliveries/${deliveryId}`)
-        const deliveryData = deliveryResponse.data
+        // Get request details
+        const requestResponse = await axios.get(`/api/delivery-requests/${requestId}`)
+        const requestData = requestResponse.data
         
-        // Check if user has access to this delivery
-        if (!checkAccess(deliveryData)) {
-          setError('You do not have permission to view this delivery')
+        // Check if user has access to this request
+        if (!checkAccess(requestData)) {
+          setError('You do not have permission to view this request')
           setLoading(false)
           return
         }
         
-        setDelivery(deliveryData)
+        setRequest(requestData)
+        setItems(requestData.items || [])
         
         // Get branch information
-        if (deliveryData.branch_id) {
-          const branchResponse = await axios.get(`/api/branches/${deliveryData.branch_id}`)
+        if (requestData.branch_id) {
+          const branchResponse = await axios.get(`/api/branches/${requestData.branch_id}`)
           setBranch(branchResponse.data)
-        }
-        
-        // Get driver information if assigned
-        if (deliveryData.driver_id) {
-          const driverResponse = await axios.get(`/api/users/${deliveryData.driver_id}`)
-          setDriver(driverResponse.data)
-        }
-        
-        // Get request items if this delivery is linked to a request
-        if (deliveryData.request_id) {
-          // Get the full request with items included
-          const requestResponse = await axios.get(`/api/delivery-requests/${deliveryData.request_id}`)
-          // Extract the items from the request response
-          setRequestItems(requestResponse.data.items || [])
         }
         
         setError(null)
       } catch (err) {
-        console.error('Error fetching delivery details:', err)
-        setError('Error loading delivery details. Please try again.')
+        console.error('Error fetching request details:', err)
+        setError('Error loading request details. Please try again.')
       } finally {
         setLoading(false)
       }
     }
     
-    fetchDeliveryData()
-  }, [deliveryId, open, user])
+    fetchRequestData()
+  }, [requestId, open, user])
   
   // Format date
   const formatDate = (dateString) => {
@@ -220,24 +237,23 @@ const DeliveryDetailsModal = ({ deliveryId, open, onClose }) => {
     let color, icon
     
     switch (status) {
-      case 'delivered':
+      case 'approved':
         color = 'success'
         icon = <CheckCircleIcon />
-        break
-      case 'in_transit':
-        color = 'primary'
-        icon = <LocalShippingIcon />
         break
       case 'pending':
         color = 'warning'
         icon = <PendingIcon />
         break
-      case 'preparing':
-      case 'loading':
-        color = 'neutral'
+      case 'processing':
+        color = 'primary'
         icon = <WarehouseIcon />
         break
-      case 'cancelled':
+      case 'delivered':
+        color = 'success'
+        icon = <LocalShippingIcon />
+        break
+      case 'rejected':
         color = 'danger'
         icon = <InfoIcon />
         break
@@ -254,7 +270,7 @@ const DeliveryDetailsModal = ({ deliveryId, open, onClose }) => {
         size="sm"
         sx={{ textTransform: 'capitalize' }}
       >
-        {status?.replace('_', ' ')}
+        {status}
       </Chip>
     )
   }
@@ -263,7 +279,7 @@ const DeliveryDetailsModal = ({ deliveryId, open, onClose }) => {
     <Modal open={open} onClose={onClose}>
       <ModalDialog size="lg">
         <ModalClose />
-        <Typography level="title-lg">Delivery Details</Typography>
+        <Typography level="title-lg">Request Details</Typography>
         <Divider sx={{ my: 2 }} />
         
         {loading ? (
@@ -272,10 +288,10 @@ const DeliveryDetailsModal = ({ deliveryId, open, onClose }) => {
           </Box>
         ) : error ? (
           <Alert color="danger">{error}</Alert>
-        ) : delivery ? (
+        ) : request ? (
           <Box sx={{ mt: 1 }}>
-            {/* Delivery Progress Timeline */}
-            <DeliveryProgressTimeline status={delivery.status} />
+            {/* Request Progress Timeline */}
+            <RequestProgressTimeline status={request.request_status} />
             
             <Grid container spacing={2}>
               <Grid xs={12} md={6}>
@@ -285,15 +301,15 @@ const DeliveryDetailsModal = ({ deliveryId, open, onClose }) => {
                     <Stack spacing={1}>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <Typography level="body-sm">ID:</Typography>
-                        <Typography level="body-sm" fontWeight="bold">#{delivery.id}</Typography>
+                        <Typography level="body-sm" fontWeight="bold">#{request.id}</Typography>
                       </Box>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <Typography level="body-sm">Tracking Number:</Typography>
-                        <Typography level="body-sm" fontWeight="bold">{delivery.tracking_number}</Typography>
+                        <Typography level="body-sm">Reference Number:</Typography>
+                        <Typography level="body-sm" fontWeight="bold">{request.reference_number}</Typography>
                       </Box>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <Typography level="body-sm">Status:</Typography>
-                        <Box>{renderStatusChip(delivery.status)}</Box>
+                        <Box>{renderStatusChip(request.request_status)}</Box>
                       </Box>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <Typography level="body-sm">Branch:</Typography>
@@ -301,21 +317,15 @@ const DeliveryDetailsModal = ({ deliveryId, open, onClose }) => {
                       </Box>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <Typography level="body-sm">Created:</Typography>
-                        <Typography level="body-sm" fontWeight="bold">
-                          {formatDate(delivery.created_at)}
-                        </Typography>
+                        <Typography level="body-sm" fontWeight="bold">{formatDate(request.created_at)}</Typography>
                       </Box>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <Typography level="body-sm">Created By:</Typography>
-                        <Typography level="body-sm" fontWeight="bold">
-                          {delivery.created_by_user || 'N/A'}
-                        </Typography>
+                        <Typography level="body-sm" fontWeight="bold">{request.creator_name || 'N/A'}</Typography>
                       </Box>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <Typography level="body-sm">Delivered:</Typography>
-                        <Typography level="body-sm" fontWeight="bold">
-                          {delivery.received_at ? formatDate(delivery.received_at) : 'Not delivered'}
-                        </Typography>
+                        <Typography level="body-sm">Total Amount:</Typography>
+                        <Typography level="body-sm" fontWeight="bold">{formatCurrency(request.total_amount)}</Typography>
                       </Box>
                     </Stack>
                   </CardContent>
@@ -323,57 +333,45 @@ const DeliveryDetailsModal = ({ deliveryId, open, onClose }) => {
               </Grid>
               
               <Grid xs={12} md={6}>
-                <Typography level="title-sm" sx={{ mb: 1 }}>Recipient Information</Typography>
+                <Typography level="title-sm" sx={{ mb: 1 }}>Additional Information</Typography>
                 <Card variant="outlined" sx={{ mb: 2 }}>
                   <CardContent>
                     <Stack spacing={1}>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography level="body-sm">Name:</Typography>
-                        <Typography level="body-sm" fontWeight="bold">{delivery.recipient_name || 'N/A'}</Typography>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <Typography level="body-sm">Notes:</Typography>
+                        <Typography level="body-sm" sx={{ maxWidth: '70%', textAlign: 'right' }}>
+                          {request.notes || 'No notes provided'}
+                        </Typography>
                       </Box>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography level="body-sm">Address:</Typography>
-                        <Typography level="body-sm" fontWeight="bold">{delivery.recipient_address || 'N/A'}</Typography>
-                      </Box>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography level="body-sm">Phone:</Typography>
-                        <Typography level="body-sm" fontWeight="bold">{delivery.recipient_phone || 'N/A'}</Typography>
-                      </Box>
-                    </Stack>
-                  </CardContent>
-                </Card>
-              </Grid>
-
-              <Grid xs={12}>
-                <Typography level="title-sm" sx={{ mb: 1 }}>Package Information</Typography>
-                <Card variant="outlined">
-                  <CardContent>
-                    <Stack spacing={1}>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography level="body-sm">Description:</Typography>
-                        <Typography level="body-sm" fontWeight="bold">{delivery.package_description || 'N/A'}</Typography>
-                      </Box>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography level="body-sm">Weight:</Typography>
-                        <Typography level="body-sm" fontWeight="bold">{delivery.weight ? `${delivery.weight} kg` : 'N/A'}</Typography>
-                      </Box>
-                      {delivery.request_id && (
+                      {request.approved_at && (
                         <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <Typography level="body-sm">Request ID:</Typography>
-                          <Typography level="body-sm" fontWeight="bold">#{delivery.request_id}</Typography>
+                          <Typography level="body-sm">Approved:</Typography>
+                          <Typography level="body-sm" fontWeight="bold">{formatDate(request.approved_at)}</Typography>
+                        </Box>
+                      )}
+                      {request.rejected_at && (
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <Typography level="body-sm">Rejected:</Typography>
+                          <Typography level="body-sm" fontWeight="bold">{formatDate(request.rejected_at)}</Typography>
+                        </Box>
+                      )}
+                      {request.completed_at && (
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <Typography level="body-sm">Completed:</Typography>
+                          <Typography level="body-sm" fontWeight="bold">{formatDate(request.completed_at)}</Typography>
                         </Box>
                       )}
                     </Stack>
                   </CardContent>
                 </Card>
               </Grid>
-              
-              {requestItems.length > 0 && (
+
+              {items.length > 0 && (
                 <Grid xs={12}>
                   <Typography level="title-sm" sx={{ mb: 1, mt: 2 }}>Request Items</Typography>
                   <Card variant="outlined">
                     <List>
-                      {requestItems.map((item, index) => (
+                      {items.map((item, index) => (
                         <Box key={index}>
                           <ListItem>
                             <ListItemContent>
@@ -396,7 +394,7 @@ const DeliveryDetailsModal = ({ deliveryId, open, onClose }) => {
                               </Grid>
                             </ListItemContent>
                           </ListItem>
-                          {index < requestItems.length - 1 && <ListDivider />}
+                          {index < items.length - 1 && <ListDivider />}
                         </Box>
                       ))}
                     </List>
@@ -406,11 +404,11 @@ const DeliveryDetailsModal = ({ deliveryId, open, onClose }) => {
             </Grid>
           </Box>
         ) : (
-          <Alert color="warning">Delivery information not found</Alert>
+          <Alert color="warning">Request information not found</Alert>
         )}
       </ModalDialog>
     </Modal>
   )
 }
 
-export default DeliveryDetailsModal 
+export default RequestDetailsModal 

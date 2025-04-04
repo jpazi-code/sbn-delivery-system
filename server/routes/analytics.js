@@ -26,10 +26,13 @@ router.get('/branch-performance', authenticateToken, async (req, res) => {
     // Add branch filter if specified
     let branchCondition = '';
     if (branch_id) {
-      branchCondition = `AND d.branch_id = ${parseInt(branch_id, 10)}`;
+      branchCondition = `AND b.id = ${parseInt(branch_id, 10)}`;
     }
     
-    // Get delivery performance metrics
+    // Get all branches first
+    const allBranches = await db.query(`SELECT id, name FROM branches ORDER BY name`);
+    
+    // Get delivery performance metrics - start with branches and left join to deliveries
     const deliveryMetrics = await db.query(`
       SELECT 
         b.id as branch_id,
@@ -41,19 +44,18 @@ router.get('/branch-performance', authenticateToken, async (req, res) => {
         COUNT(CASE WHEN d.status = 'cancelled' THEN 1 END) as cancelled_deliveries,
         SUM(CASE WHEN dr.total_amount IS NOT NULL THEN dr.total_amount ELSE 0 END)::numeric(10,2) as total_amount
       FROM 
-        deliveries d
+        branches b
       LEFT JOIN 
-        branches b ON d.branch_id = b.id
+        deliveries d ON b.id = d.branch_id AND 1=1 ${timeCondition}
       LEFT JOIN
         delivery_requests dr ON d.request_id = dr.id
       WHERE 
         1=1 
-        ${timeCondition}
         ${branchCondition}
       GROUP BY 
         b.id, b.name
       ORDER BY 
-        total_deliveries DESC
+        b.name ASC
     `);
     
     // Get average request-to-delivery time
@@ -63,13 +65,13 @@ router.get('/branch-performance', authenticateToken, async (req, res) => {
         b.name as branch_name,
         AVG(EXTRACT(EPOCH FROM (d.created_at - dr.created_at)) / 3600)::numeric(10,2) as avg_request_to_delivery_hours
       FROM 
-        deliveries d
-      JOIN 
-        delivery_requests dr ON d.request_id = dr.id
-      JOIN 
-        branches b ON dr.branch_id = b.id
+        branches b
+      LEFT JOIN
+        delivery_requests dr ON b.id = dr.branch_id
+      LEFT JOIN 
+        deliveries d ON dr.id = d.request_id AND d.request_id IS NOT NULL
       WHERE 
-        d.request_id IS NOT NULL
+        1=1
         ${timeCondition}
         ${branchCondition}
       GROUP BY 
