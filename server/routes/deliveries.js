@@ -193,6 +193,15 @@ router.post('/', async (req, res) => {
     // Parse request_id as integer if provided
     const parsedRequestId = request_id ? parseInt(request_id, 10) : null;
     
+    // If request_id is provided, verify it exists first
+    if (parsedRequestId) {
+      const requestCheck = await db.query('SELECT * FROM delivery_requests WHERE id = $1', [parsedRequestId]);
+      if (requestCheck.rows.length === 0) {
+        return res.status(400).json({ error: `Delivery request with ID ${parsedRequestId} not found` });
+      }
+      console.log(`Creating delivery from request ID: ${parsedRequestId}`);
+    }
+    
     // Generate a unique tracking number
     const timestamp = new Date().getTime();
     const randomPart = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
@@ -213,6 +222,8 @@ router.post('/', async (req, res) => {
     if (!req.user || !req.user.id) {
       return res.status(401).json({ error: 'Unauthorized: User ID is required' });
     }
+    
+    console.log(`Creating new delivery with tracking: ${trackingNumber}, status: ${deliveryStatus}`);
     
     const result = await db.query(`
       INSERT INTO deliveries (
@@ -439,6 +450,22 @@ router.put('/:id/confirm-receipt', async (req, res) => {
       [req.user.id, deliveryId]
     );
     
+    // If this delivery is connected to a request, update the request status too
+    if (delivery.request_id) {
+      try {
+        await db.query(`
+          UPDATE delivery_requests 
+          SET request_status = 'delivered', updated_at = CURRENT_TIMESTAMP
+          WHERE id = $1
+        `, [delivery.request_id]);
+        
+        console.log(`Updated request ${delivery.request_id} status to delivered`);
+      } catch (updateError) {
+        console.error('Error updating request status:', updateError);
+        // Continue even if this update fails
+      }
+    }
+    
     // Get updated delivery with relations
     const updatedDeliveryResult = await db.query(
       `SELECT d.*, b.name as branch_name, u.username as driver_name
@@ -522,6 +549,32 @@ router.put('/:id/status', async (req, res) => {
       LEFT JOIN branches b ON d.branch_id = b.id
       WHERE d.id = $1
     `, [deliveryId]);
+    
+    // If the delivery is connected to a request, update the request status too
+    if (currentDelivery.request_id) {
+      try {
+        // Map delivery status to request status
+        let requestStatus;
+        if (trimmedStatus === 'delivered') {
+          requestStatus = 'delivered';
+        } else if (['in_transit', 'loading'].includes(trimmedStatus)) {
+          requestStatus = 'processing';
+        }
+        
+        if (requestStatus) {
+          await db.query(`
+            UPDATE delivery_requests 
+            SET request_status = $1, updated_at = CURRENT_TIMESTAMP
+            WHERE id = $2
+          `, [requestStatus, currentDelivery.request_id]);
+          
+          console.log(`Updated request ${currentDelivery.request_id} status to ${requestStatus}`);
+        }
+      } catch (updateError) {
+        console.error('Error updating request status:', updateError);
+        // Continue even if this update fails
+      }
+    }
     
     res.status(200).json(deliveryWithBranch.rows[0]);
   } catch (error) {
