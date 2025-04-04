@@ -308,107 +308,114 @@ const RequestDetailsModal = ({ requestId, open, onClose }) => {
             {/* Request Progress Timeline */}
             <RequestProgressTimeline status={request.request_status} />
             
-            <Grid container spacing={2}>
-              <Grid xs={12} md={6}>
-                <Typography level="title-sm" sx={{ mb: 1 }}>General Information</Typography>
-                <Card variant="outlined" sx={{ mb: 2 }}>
-                  <CardContent>
-                    <Stack spacing={1}>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <Typography level="body-sm">ID:</Typography>
-                        <Typography level="body-sm" fontWeight="bold">#{request.id}</Typography>
+            <Grid container spacing={3}>
+              <Grid xs={12}>
+                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+                  <Box>
+                    <Typography level="title-sm" mb={1}>Request ID</Typography>
+                    <Typography level="body-md" fontWeight="bold">
+                      {request.id}
+                    </Typography>
+                  </Box>
+                  
+                  <Box>
+                    <Typography level="title-sm" mb={1}>Status</Typography>
+                    {renderStatusChip(request.request_status)}
+                  </Box>
+                  
+                  <Box>
+                    <Typography level="title-sm" mb={1}>Branch</Typography>
+                    <Typography level="body-md" fontWeight="bold">
+                      {branch?.name || 'Unknown Branch'}
+                    </Typography>
+                  </Box>
+                  
+                  <Box>
+                    <Typography level="title-sm" mb={1}>Priority</Typography>
+                    <Typography level="body-md" fontWeight="bold">
+                      {request.priority ? request.priority.charAt(0).toUpperCase() + request.priority.slice(1) : 'Medium'}
+                    </Typography>
+                  </Box>
+                  
+                  <Box>
+                    <Typography level="title-sm" mb={1}>Requested By</Typography>
+                    <Typography level="body-md" fontWeight="bold">
+                      {request.requested_by || request.creator_name || 'N/A'}
+                    </Typography>
+                  </Box>
+                  
+                  <Box>
+                    <Typography level="title-sm" mb={1}>Delivery Date</Typography>
+                    <Typography level="body-md" fontWeight="bold">
+                      {request.delivery_date ? formatDate(request.delivery_date) : 'Not specified'}
+                    </Typography>
+                  </Box>
+                  
+                  <Box>
+                    <Typography level="title-sm" mb={1}>Created At</Typography>
+                    <Typography level="body-md" fontWeight="bold">
+                      {formatDate(request.created_at)}
+                    </Typography>
+                  </Box>
+                  
+                  <Box>
+                    <Typography level="title-sm" mb={1}>Total Amount</Typography>
+                    <Typography level="body-md" fontWeight="bold">
+                      {formatCurrency(request.total_amount)}
+                    </Typography>
+                  </Box>
+                </Box>
+              </Grid>
+              
+              <Grid xs={12}>
+                <Typography level="title-md" sx={{ mb: 2, mt: 2 }}>Items</Typography>
+                <Card variant="outlined">
+                  <Box sx={{ p: 2 }}>
+                    <Box sx={{ 
+                      display: 'grid', 
+                      gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr', 
+                      gap: 2, 
+                      mb: 1,
+                      fontWeight: 'bold'
+                    }}>
+                      <Typography level="body-sm" fontWeight="bold">Item</Typography>
+                      <Typography level="body-sm" fontWeight="bold">Quantity</Typography>
+                      <Typography level="body-sm" fontWeight="bold">Unit</Typography>
+                      <Typography level="body-sm" fontWeight="bold">Unit Price</Typography>
+                      <Typography level="body-sm" fontWeight="bold">Total</Typography>
+                    </Box>
+                    
+                    <Divider />
+                    
+                    {items.map((item, index) => (
+                      <Box key={index} sx={{ 
+                        display: 'grid', 
+                        gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr', 
+                        gap: 2,
+                        py: 2,
+                        borderBottom: index < items.length - 1 ? '1px solid' : 'none',
+                        borderColor: 'divider'
+                      }}>
+                        <Typography level="body-sm">{item.description || item.item_name || 'No description'}</Typography>
+                        <Typography level="body-sm">{item.quantity}</Typography>
+                        <Typography level="body-sm">{item.unit || 'pcs'}</Typography>
+                        <Typography level="body-sm">{formatCurrency(item.unit_price)}</Typography>
+                        <Typography level="body-sm">{formatCurrency(item.subtotal || (item.quantity * item.unit_price))}</Typography>
                       </Box>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <Typography level="body-sm">Status:</Typography>
-                        <Box>{renderStatusChip(request.request_status)}</Box>
-                      </Box>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <Typography level="body-sm">Branch:</Typography>
-                        <Typography level="body-sm" fontWeight="bold">{branch?.name || 'Unknown Branch'}</Typography>
-                      </Box>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <Typography level="body-sm">Created:</Typography>
-                        <Typography level="body-sm" fontWeight="bold">{formatDate(request.created_at)}</Typography>
-                      </Box>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <Typography level="body-sm">Created By:</Typography>
-                        <Typography level="body-sm" fontWeight="bold">{request.creator_name || 'N/A'}</Typography>
-                      </Box>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <Typography level="body-sm">Total Amount:</Typography>
-                        <Typography level="body-sm" fontWeight="bold">{formatCurrency(request.total_amount)}</Typography>
-                      </Box>
-                    </Stack>
-                  </CardContent>
+                    ))}
+                  </Box>
                 </Card>
               </Grid>
               
-              <Grid xs={12} md={6}>
-                <Typography level="title-sm" sx={{ mb: 1 }}>Additional Information</Typography>
-                <Card variant="outlined" sx={{ mb: 2 }}>
-                  <CardContent>
-                    <Stack spacing={1}>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                        <Typography level="body-sm">Notes:</Typography>
-                        <Typography level="body-sm" sx={{ maxWidth: '70%', textAlign: 'right' }}>
-                          {request.notes || 'No notes provided'}
-                        </Typography>
-                      </Box>
-                      {request.approved_at && (
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <Typography level="body-sm">Approved:</Typography>
-                          <Typography level="body-sm" fontWeight="bold">{formatDate(request.approved_at)}</Typography>
-                        </Box>
-                      )}
-                      {request.rejected_at && (
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <Typography level="body-sm">Rejected:</Typography>
-                          <Typography level="body-sm" fontWeight="bold">{formatDate(request.rejected_at)}</Typography>
-                        </Box>
-                      )}
-                      {request.completed_at && (
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <Typography level="body-sm">Completed:</Typography>
-                          <Typography level="body-sm" fontWeight="bold">{formatDate(request.completed_at)}</Typography>
-                        </Box>
-                      )}
-                    </Stack>
-                  </CardContent>
-                </Card>
-              </Grid>
-
-              {items.length > 0 && (
+              {request.notes && (
                 <Grid xs={12}>
-                  <Typography level="title-sm" sx={{ mb: 1, mt: 2 }}>Request Items</Typography>
+                  <Typography level="title-sm" mb={1}>Notes</Typography>
                   <Card variant="outlined">
-                    <List>
-                      {items.map((item, index) => (
-                        <Box key={index}>
-                          <ListItem>
-                            <ListItemContent>
-                              <Grid container spacing={1}>
-                                <Grid xs={6}>
-                                  <Typography level="body-sm" fontWeight="bold">{item.item_name}</Typography>
-                                  <Typography level="body-xs">{item.item_description || 'No description'}</Typography>
-                                </Grid>
-                                <Grid xs={2}>
-                                  <Typography level="body-sm">Quantity: {item.quantity}</Typography>
-                                </Grid>
-                                <Grid xs={2}>
-                                  <Typography level="body-sm">Unit: {item.unit || 'pcs'}</Typography>
-                                </Grid>
-                                <Grid xs={2}>
-                                  <Typography level="body-sm">
-                                    {item.estimated_cost ? formatCurrency(item.estimated_cost) : 'N/A'}
-                                  </Typography>
-                                </Grid>
-                              </Grid>
-                            </ListItemContent>
-                          </ListItem>
-                          {index < items.length - 1 && <ListDivider />}
-                        </Box>
-                      ))}
-                    </List>
+                    <CardContent>
+                      <Typography level="body-md">
+                        {request.notes}
+                      </Typography>
+                    </CardContent>
                   </Card>
                 </Grid>
               )}
