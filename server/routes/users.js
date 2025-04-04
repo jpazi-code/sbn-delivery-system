@@ -341,11 +341,14 @@ router.put('/:id', async (req, res) => {
       }
     }
     
-    if (password && current_password) {
-      // Store password as plaintext
-      updates.push(`password = $${paramIndex}`);
-      values.push(password);
-      paramIndex++;
+    // Handle password update
+    if (password) {
+      if (role === 'admin' || (current_password && current_password === existingUser.password)) {
+        // Store password as plaintext - allow admin to change without current password
+        updates.push(`password = $${paramIndex}`);
+        values.push(password);
+        paramIndex++;
+      }
     }
     
     if (role === 'admin' && newRole) {
