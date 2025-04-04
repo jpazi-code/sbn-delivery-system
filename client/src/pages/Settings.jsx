@@ -55,6 +55,7 @@ const Settings = () => {
     current_password: '',
     new_password: '',
     confirm_password: '',
+    username: ''
   });
   
   // Initialize form data from user object
@@ -69,6 +70,7 @@ const Settings = () => {
         current_password: '',
         new_password: '',
         confirm_password: '',
+        username: user.username || ''
       });
       
       // Force refresh imagePreview with user's profile picture
@@ -248,7 +250,8 @@ const Settings = () => {
         full_name: formData.full_name,
         phone: formData.phone,
         address: formData.address,
-        profile_picture_url: profileUrl
+        profile_picture_url: profileUrl,
+        username: formData.username
       };
       
       // Add password fields if provided
@@ -457,9 +460,9 @@ const Settings = () => {
               <FormControl>
                 <FormLabel>Username</FormLabel>
                 <Input
-                  value={user.username}
-                  disabled
-                  readOnly
+                  name="username"
+                  value={formData.username}
+                  onChange={handleChange}
                   startDecorator={<PersonIcon />}
                 />
               </FormControl>

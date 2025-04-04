@@ -384,34 +384,62 @@ const DeliveryDetailsModal = ({ deliveryId, open, onClose }) => {
                 <Grid xs={12}>
                   <Typography level="title-sm" sx={{ mb: 1, mt: 2 }}>Request Items</Typography>
                   <Card variant="outlined">
-                    <List>
+                    <Box sx={{ p: 2 }}>
+                      <Box sx={{ 
+                        display: 'grid', 
+                        gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr', 
+                        gap: 2, 
+                        mb: 1,
+                        fontWeight: 'bold'
+                      }}>
+                        <Typography level="body-sm" fontWeight="bold">Item</Typography>
+                        <Typography level="body-sm" fontWeight="bold">Quantity</Typography>
+                        <Typography level="body-sm" fontWeight="bold">Unit</Typography>
+                        <Typography level="body-sm" fontWeight="bold">Unit Price</Typography>
+                        <Typography level="body-sm" fontWeight="bold">Subtotal</Typography>
+                      </Box>
+                      
+                      <Divider />
+                      
                       {requestItems.map((item, index) => (
-                        <Box key={index}>
-                          <ListItem>
-                            <ListItemContent>
-                              <Grid container spacing={1}>
-                                <Grid xs={6}>
-                                  <Typography level="body-sm" fontWeight="bold">{item.item_name}</Typography>
-                                  <Typography level="body-xs">{item.item_description || 'No description'}</Typography>
-                                </Grid>
-                                <Grid xs={2}>
-                                  <Typography level="body-sm">Quantity: {item.quantity}</Typography>
-                                </Grid>
-                                <Grid xs={2}>
-                                  <Typography level="body-sm">Unit: {item.unit || 'pcs'}</Typography>
-                                </Grid>
-                                <Grid xs={2}>
-                                  <Typography level="body-sm">
-                                    {item.estimated_cost ? formatCurrency(item.estimated_cost) : 'N/A'}
-                                  </Typography>
-                                </Grid>
-                              </Grid>
-                            </ListItemContent>
-                          </ListItem>
-                          {index < requestItems.length - 1 && <ListDivider />}
+                        <Box key={index} sx={{ 
+                          display: 'grid', 
+                          gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr', 
+                          gap: 2,
+                          py: 2,
+                          borderBottom: index < requestItems.length - 1 ? '1px solid' : 'none',
+                          borderColor: 'divider'
+                        }}>
+                          <Typography level="body-sm">
+                            {item.description || item.item_code || 'No description'}
+                          </Typography>
+                          <Typography level="body-sm">{item.quantity}</Typography>
+                          <Typography level="body-sm">{item.unit || 'pcs'}</Typography>
+                          <Typography level="body-sm">{formatCurrency(item.unit_price)}</Typography>
+                          <Typography level="body-sm">{formatCurrency(item.subtotal || (item.quantity * item.unit_price))}</Typography>
                         </Box>
                       ))}
-                    </List>
+                      
+                      {/* Total row */}
+                      <Box sx={{ 
+                        display: 'grid', 
+                        gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr', 
+                        gap: 2,
+                        py: 2,
+                        borderTop: '2px solid',
+                        borderColor: 'divider',
+                        mt: 1
+                      }}>
+                        <Typography level="body-md" fontWeight="bold" sx={{ gridColumn: 'span 4', textAlign: 'right' }}>
+                          Total:
+                        </Typography>
+                        <Typography level="body-md" fontWeight="bold">
+                          {formatCurrency(requestItems.reduce((sum, item) => 
+                            sum + (item.subtotal || (item.quantity * item.unit_price)), 0)
+                          )}
+                        </Typography>
+                      </Box>
+                    </Box>
                   </Card>
                 </Grid>
               )}

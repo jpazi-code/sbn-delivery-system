@@ -431,7 +431,6 @@ const UserForm = ({ open, onClose, onSave, user, mode, loading, branches }) => {
                 value={formData.username}
                 onChange={handleChange}
                 placeholder="johndoe"
-                disabled={mode === 'edit' && user?.role !== 'admin'}
               />
               {errors.username && (
                 <Typography level="body-xs" color="danger">

@@ -251,7 +251,8 @@ router.put('/:id', async (req, res) => {
       password, 
       current_password, 
       role: newRole, 
-      branch_id 
+      branch_id,
+      username 
     } = req.body;
     
     // Only admin or the user themselves can update user details
@@ -273,6 +274,14 @@ router.put('/:id', async (req, res) => {
     
     const existingUser = userCheck.rows[0];
     
+    // Check if username is already taken if username is being changed
+    if (username && username !== existingUser.username) {
+      const usernameCheck = await db.query('SELECT id FROM users WHERE username = $1 AND id != $2', [username, id]);
+      if (usernameCheck.rows.length > 0) {
+        return res.status(400).json({ error: 'Username is already taken' });
+      }
+    }
+    
     // Verify current password if provided
     if (password && current_password) {
       // Check if using the demo password (password123) - same bypass as in auth.js
@@ -293,6 +302,12 @@ router.put('/:id', async (req, res) => {
     const updates = [];
     const values = [];
     let paramIndex = 1;
+    
+    if (username) {
+      updates.push(`username = $${paramIndex}`);
+      values.push(username);
+      paramIndex++;
+    }
     
     if (email) {
       updates.push(`email = $${paramIndex}`);

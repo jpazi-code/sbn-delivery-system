@@ -38,6 +38,7 @@ import InfoIcon from '@mui/icons-material/Info'
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday'
 import CalendarViewMonthIcon from '@mui/icons-material/CalendarViewMonth'
 import CalendarViewWeekIcon from '@mui/icons-material/CalendarViewWeek'
+import FilterAltOffIcon from '@mui/icons-material/FilterAltOff'
 
 const WarehouseHistory = () => {
   const { user } = useAuth()
@@ -53,6 +54,13 @@ const WarehouseHistory = () => {
   const [deliveryTimeframe, setDeliveryTimeframe] = useState('month')
   const [selectedDelivery, setSelectedDelivery] = useState(null)
   const [detailsModalOpen, setDetailsModalOpen] = useState(false)
+  const [isLoadingDeliveries, setIsLoadingDeliveries] = useState(true)
+  const [isDeliveryModalOpen, setIsDeliveryModalOpen] = useState(false)
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
+  const [dateRangeFilter, setDateRangeFilter] = useState('all')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [branchNames, setBranchNames] = useState({})
   
   const isAdmin = user?.role === 'admin'
   const isWarehouse = user?.role === 'warehouse'
@@ -69,7 +77,7 @@ const WarehouseHistory = () => {
     const fetchBranches = async () => {
       try {
         const response = await axios.get('/api/branches')
-        setBranches(response.data)
+        setBranchNames(response.data.reduce((acc, branch) => ({ ...acc, [branch.id]: branch.name }), {}))
       } catch (err) {
         console.error('Error fetching branches:', err)
       }
@@ -81,7 +89,7 @@ const WarehouseHistory = () => {
   // Fetch warehouse deliveries
   const fetchDeliveries = async () => {
     try {
-      setDeliveriesLoading(true)
+      setIsLoadingDeliveries(true)
       
       // Get all deliveries handled by warehouse (created by warehouse user)
       const response = await axios.get('/api/deliveries', {
@@ -98,7 +106,7 @@ const WarehouseHistory = () => {
       console.error('Error fetching warehouse deliveries:', err)
       setDeliveriesError('Failed to load warehouse deliveries')
     } finally {
-      setDeliveriesLoading(false)
+      setIsLoadingDeliveries(false)
     }
   }
   
@@ -107,29 +115,69 @@ const WarehouseHistory = () => {
     fetchDeliveries()
   }, [deliveryTimeframe])
   
-  // Filter deliveries
+  // Filter deliveries based on search term, status, and timeframe
   useEffect(() => {
-    let result = deliveries
-    
+    if (!deliveries.length) return;
+
+    let result = [...deliveries];
+
+    // Apply search filter
+    if (searchQuery.trim()) {
+      const searchLower = searchQuery.toLowerCase().trim();
+      result = result.filter(delivery => 
+        delivery.tracking_number?.toLowerCase().includes(searchLower) ||
+        delivery.recipient_name?.toLowerCase().includes(searchLower) ||
+        delivery.recipient_address?.toLowerCase().includes(searchLower) ||
+        branchNames[delivery.branch_id]?.toLowerCase().includes(searchLower)
+      );
+    }
+
     // Apply status filter
     if (deliveryStatusFilter !== 'all') {
-      result = result.filter(delivery => delivery.status === deliveryStatusFilter)
+      result = result.filter(delivery => delivery.status === deliveryStatusFilter);
     }
-    
-    // Apply search filter
-    if (deliverySearchTerm) {
-      const lowerSearchTerm = deliverySearchTerm.toLowerCase()
-      result = result.filter(
-        delivery =>
-          delivery.tracking_number?.toLowerCase().includes(lowerSearchTerm) ||
-          delivery.recipient_name?.toLowerCase().includes(lowerSearchTerm) ||
-          delivery.recipient_address?.toLowerCase().includes(lowerSearchTerm) ||
-          delivery.package_description?.toLowerCase().includes(lowerSearchTerm)
-      )
+
+    // Apply date range filter
+    if (dateRangeFilter !== 'all') {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      if (dateRangeFilter === 'today') {
+        result = result.filter(delivery => {
+          const deliveryDate = new Date(delivery.created_at);
+          deliveryDate.setHours(0, 0, 0, 0);
+          return deliveryDate.getTime() === today.getTime();
+        });
+      } else if (dateRangeFilter === 'last_7_days') {
+        const last7Days = new Date(today);
+        last7Days.setDate(last7Days.getDate() - 7);
+        
+        result = result.filter(delivery => {
+          const deliveryDate = new Date(delivery.created_at);
+          return deliveryDate >= last7Days;
+        });
+      } else if (dateRangeFilter === 'last_30_days') {
+        const last30Days = new Date(today);
+        last30Days.setDate(last30Days.getDate() - 30);
+        
+        result = result.filter(delivery => {
+          const deliveryDate = new Date(delivery.created_at);
+          return deliveryDate >= last30Days;
+        });
+      } else if (dateRangeFilter === 'custom' && startDate && endDate) {
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999); // End of the selected day
+        
+        result = result.filter(delivery => {
+          const deliveryDate = new Date(delivery.created_at);
+          return deliveryDate >= start && deliveryDate <= end;
+        });
+      }
     }
-    
-    setFilteredDeliveries(result)
-  }, [deliverySearchTerm, deliveryStatusFilter, deliveries])
+
+    setFilteredDeliveries(result);
+  }, [deliveries, searchQuery, deliveryStatusFilter, dateRangeFilter, startDate, endDate, branchNames]);
   
   // Handle delivery timeframe change
   const handleDeliveryTimeframeChange = (event, newValue) => {
@@ -142,7 +190,7 @@ const WarehouseHistory = () => {
     if (delivery) {
       console.log('Selected delivery:', delivery);
       setSelectedDelivery(delivery);
-      setDetailsModalOpen(true);
+      setIsDeliveryModalOpen(true);
     }
   }
   
@@ -203,191 +251,194 @@ const WarehouseHistory = () => {
     return `₱${Number(amount).toFixed(2)}`
   }
   
+  const handleOpenDeliveryModal = (delivery) => {
+    setSelectedDelivery(delivery)
+    setIsDeliveryModalOpen(true)
+  }
+  
+  const handleCloseDeliveryModal = () => {
+    setSelectedDelivery(null)
+    setIsDeliveryModalOpen(false)
+  }
+  
+  const resetFilters = () => {
+    setSearchQuery('');
+    setDeliveryStatusFilter('all');
+    setDateRangeFilter('all');
+    setStartDate('');
+    setEndDate('');
+  }
+  
   return (
-    <Box sx={{ p: 3 }}>
-      <Typography level="h3" sx={{ mb: 3 }}>
-        <HistoryIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
-        Warehouse History
-      </Typography>
-      
-      <Box sx={{ mb: 4 }}>
-        <Typography level="title-lg" sx={{ mb: 2 }}>
-          <LocalShippingIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
-          Deliveries History
-        </Typography>
-        
-        {/* Error message */}
-        {deliveriesError && (
-          <Alert color="danger" sx={{ mb: 3 }}>
-            {deliveriesError}
-          </Alert>
-        )}
-        
-        {/* Filter controls */}
-        <Card sx={{ mb: 3 }}>
-          <CardContent>
-            <Grid container spacing={2} alignItems="flex-end">
-              <Grid xs={12} md={4}>
-                <FormControl>
-                  <FormLabel>Search</FormLabel>
-                  <Input
-                    placeholder="Search by tracking #, recipient..."
-                    value={deliverySearchTerm}
-                    onChange={(e) => setDeliverySearchTerm(e.target.value)}
-                    startDecorator={<SearchIcon />}
-                  />
-                </FormControl>
-              </Grid>
-              
-              <Grid xs={12} md={3}>
-                <FormControl>
-                  <FormLabel>Status Filter</FormLabel>
-                  <Select
-                    value={deliveryStatusFilter}
-                    onChange={(e, val) => setDeliveryStatusFilter(val)}
-                    startDecorator={<FilterAltIcon />}
-                  >
-                    <Option value="all">All Statuses</Option>
-                    <Option value="pending">Pending</Option>
-                    <Option value="preparing">Preparing</Option>
-                    <Option value="loading">Loading</Option>
-                    <Option value="in_transit">In Transit</Option>
-                    <Option value="delivered">Delivered</Option>
-                    <Option value="cancelled">Cancelled</Option>
-                  </Select>
-                </FormControl>
-              </Grid>
-              
-              <Grid xs={12} md={3}>
-                <FormControl>
-                  <FormLabel>Timeframe</FormLabel>
-                  <Box sx={{ display: 'flex', gap: 1 }}>
-                    <Button
-                      variant={deliveryTimeframe === 'week' ? 'solid' : 'outlined'}
-                      color={deliveryTimeframe === 'week' ? 'primary' : 'neutral'}
-                      startDecorator={<CalendarViewWeekIcon />}
-                      onClick={() => setDeliveryTimeframe('week')}
-                    >
-                      Week
-                    </Button>
-                    <Button
-                      variant={deliveryTimeframe === 'month' ? 'solid' : 'outlined'}
-                      color={deliveryTimeframe === 'month' ? 'primary' : 'neutral'}
-                      startDecorator={<CalendarViewMonthIcon />}
-                      onClick={() => setDeliveryTimeframe('month')}
-                    >
-                      Month
-                    </Button>
-                    <Button
-                      variant={deliveryTimeframe === 'all' ? 'solid' : 'outlined'}
-                      color={deliveryTimeframe === 'all' ? 'primary' : 'neutral'}
-                      startDecorator={<CalendarTodayIcon />}
-                      onClick={() => setDeliveryTimeframe('all')}
-                    >
-                      All
-                    </Button>
-                  </Box>
-                </FormControl>
-              </Grid>
-              
-              <Grid xs={12} md={2} display="flex" justifyContent="flex-end">
-                <Button 
-                  variant="outlined" 
-                  color="neutral"
-                  startDecorator={<RefreshIcon />}
-                  onClick={fetchDeliveries}
-                >
-                  Refresh
-                </Button>
-              </Grid>
-              
-              <Grid xs={12} display="flex" justifyContent="flex-end">
-                <Typography level="body-sm">
-                  Showing {filteredDeliveries.length} of {deliveries.length} deliveries
-                </Typography>
-              </Grid>
-            </Grid>
-          </CardContent>
-        </Card>
-        
-        {/* Loading state */}
-        {deliveriesLoading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '30vh' }}>
-            <CircularProgress />
-          </Box>
-        ) : (
+    <div>
+      {/* Header */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Typography level="h4" component="h1">Warehouse History</Typography>
+      </Box>
+
+      {/* Search and filter controls */}
+      <Sheet 
+        variant="outlined" 
+        sx={{ 
+          p: 2, 
+          mb: 2, 
+          borderRadius: 'sm',
+          display: 'flex',
+          flexDirection: {xs: 'column', md: 'row'},
+          gap: 2
+        }}
+      >
+        <FormControl sx={{ minWidth: 200, flex: 1 }}>
+          <FormLabel>Search</FormLabel>
+          <Input
+            placeholder="Search..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            startDecorator={<SearchIcon />}
+          />
+        </FormControl>
+
+        <FormControl sx={{ minWidth: 200 }}>
+          <FormLabel>Date Range</FormLabel>
+          <Select
+            value={dateRangeFilter}
+            onChange={(e, newValue) => setDateRangeFilter(newValue)}
+            placeholder="Select date range"
+          >
+            <Option value="all">All Time</Option>
+            <Option value="today">Today</Option>
+            <Option value="last_7_days">Last 7 Days</Option>
+            <Option value="last_30_days">Last 30 Days</Option>
+            <Option value="custom">Custom Range</Option>
+          </Select>
+        </FormControl>
+
+        {dateRangeFilter === 'custom' && (
           <>
-            {/* No deliveries found */}
-            {filteredDeliveries.length === 0 && (
-              <Alert
-                color="neutral"
-                sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '30vh' }}
-              >
-                No deliveries found for the selected criteria
-              </Alert>
-            )}
-            
-            {/* Deliveries table */}
-            {filteredDeliveries.length > 0 && (
-              <Sheet
-                variant="outlined"
-                sx={{ borderRadius: 'sm', overflow: 'auto', maxHeight: '60vh' }}
-              >
-                <Table stickyHeader hoverRow>
-                  <thead>
-                    <tr>
-                      <th style={{ width: 80 }}>ID</th>
-                      <th style={{ width: 160 }}>Tracking #</th>
-                      <th style={{ width: 140 }}>Recipient</th>
-                      <th>Address</th>
-                      <th style={{ width: 120 }}>Status</th>
-                      <th style={{ width: 180 }}>Created</th>
-                      <th style={{ width: 100 }}>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredDeliveries.map(delivery => (
-                      <tr key={delivery.id}>
-                        <td>{delivery.id}</td>
-                        <td>{delivery.tracking_number}</td>
-                        <td>{delivery.recipient_name}</td>
-                        <td>
-                          <Typography level="body-sm">
-                            {delivery.recipient_address?.substring(0, 50)}
-                            {delivery.recipient_address?.length > 50 ? '...' : ''}
-                          </Typography>
-                        </td>
-                        <td>{renderDeliveryStatusChip(delivery.status)}</td>
-                        <td>{formatDate(delivery.created_at)}</td>
-                        <td>
-                          <Tooltip title="View Details">
-                            <IconButton
-                              size="sm"
-                              variant="plain"
-                              color="neutral"
-                              onClick={() => handleViewDeliveryDetails(delivery.id)}
-                            >
-                              <VisibilityIcon />
-                            </IconButton>
-                          </Tooltip>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </Table>
-              </Sheet>
-            )}
+            <FormControl sx={{ minWidth: 200 }}>
+              <FormLabel>Start Date</FormLabel>
+              <Input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+              />
+            </FormControl>
+            <FormControl sx={{ minWidth: 200 }}>
+              <FormLabel>End Date</FormLabel>
+              <Input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+              />
+            </FormControl>
           </>
         )}
-      </Box>
+
+        <FormControl sx={{ minWidth: 200 }}>
+          <FormLabel>Status</FormLabel>
+          <Select
+            value={deliveryStatusFilter}
+            onChange={(e, newValue) => setDeliveryStatusFilter(newValue)}
+            placeholder="Select status"
+          >
+            <Option value="all">All Statuses</Option>
+            <Option value="pending">Pending</Option>
+            <Option value="loading">Loading</Option>
+            <Option value="in_transit">In Transit</Option>
+            <Option value="delivered">Delivered</Option>
+            <Option value="cancelled">Cancelled</Option>
+          </Select>
+        </FormControl>
+
+        <FormControl sx={{ alignSelf: 'flex-end' }}>
+          <Button
+            startDecorator={<FilterAltOffIcon />}
+            onClick={resetFilters}
+            variant="outlined"
+            color="neutral"
+          >
+            Reset Filters
+          </Button>
+        </FormControl>
+      </Sheet>
+
+      {/* Deliveries Table */}
+      <Sheet
+        variant="outlined"
+        sx={{
+          width: '100%',
+          borderRadius: 'sm',
+          overflow: 'auto',
+          mb: 2,
+        }}
+      >
+        <Table stickyHeader hoverRow>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Tracking No.</th>
+              <th>Branch</th>
+              <th>Status</th>
+              <th>Scheduled Date</th>
+              <th>Created Date</th>
+              <th style={{ width: '120px' }}>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {isLoadingDeliveries ? (
+              <tr>
+                <td colSpan={7} style={{ textAlign: 'center', padding: '2rem' }}>
+                  <CircularProgress size="sm" />
+                  <Typography level="body-sm" sx={{ mt: 1 }}>Loading deliveries...</Typography>
+                </td>
+              </tr>
+            ) : filteredDeliveries.length === 0 ? (
+              <tr>
+                <td colSpan={7} style={{ textAlign: 'center', padding: '2rem' }}>
+                  <Typography level="body-sm">No deliveries found</Typography>
+                </td>
+              </tr>
+            ) : (
+              filteredDeliveries.map((delivery) => (
+                <tr key={delivery.id}>
+                  <td>{delivery.id}</td>
+                  <td>{delivery.tracking_number}</td>
+                  <td>{branchNames[delivery.branch_id] || 'Unknown'}</td>
+                  <td>{renderDeliveryStatusChip(delivery.status)}</td>
+                  <td>{formatDate(delivery.scheduled_date)}</td>
+                  <td>{formatDate(delivery.created_at)}</td>
+                  <td>
+                    <Box sx={{ display: 'flex', gap: 1 }}>
+                      <Tooltip title="View Details">
+                        <IconButton 
+                          size="sm" 
+                          variant="plain" 
+                          color="neutral" 
+                          onClick={() => handleOpenDeliveryModal(delivery)}
+                        >
+                          <VisibilityIcon />
+                        </IconButton>
+                      </Tooltip>
+                    </Box>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </Table>
+      </Sheet>
       
       {/* Delivery Details Modal */}
-      <DeliveryDetailsModal 
-        deliveryId={selectedDelivery?.id}
-        open={detailsModalOpen}
-        onClose={() => setDetailsModalOpen(false)}
-      />
-    </Box>
+      {selectedDelivery && (
+        <DeliveryDetailsModal
+          open={isDeliveryModalOpen}
+          onClose={handleCloseDeliveryModal}
+          deliveryId={selectedDelivery.id}
+          userRole={user?.role}
+          userId={user?.id}
+        />
+      )}
+    </div>
   )
 }
 
