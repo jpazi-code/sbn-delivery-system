@@ -270,163 +270,195 @@ const WarehouseHistory = () => {
   }
   
   return (
-    <div>
+    <Box sx={{ py: 2 }}>
       {/* Header */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Typography level="h4" component="h1">Warehouse History</Typography>
+      <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Sheet
+            variant="soft"
+            color="primary"
+            sx={{ 
+              p: 1.5, 
+              borderRadius: 'sm', 
+              display: 'flex', 
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            <HistoryIcon fontSize="large" />
+          </Sheet>
+          <Typography level="h4">Warehouse History</Typography>
+        </Box>
+        
+        <Button
+          variant="outlined"
+          color="neutral"
+          startDecorator={<RefreshIcon />}
+          onClick={() => fetchDeliveries()}
+        >
+          Refresh
+        </Button>
       </Box>
 
       {/* Search and filter controls */}
-      <Sheet 
-        variant="outlined" 
-        sx={{ 
-          p: 2, 
-          mb: 2, 
-          borderRadius: 'sm',
-          display: 'flex',
-          flexDirection: {xs: 'column', md: 'row'},
-          gap: 2
-        }}
-      >
-        <FormControl sx={{ minWidth: 200, flex: 1 }}>
-          <FormLabel>Search</FormLabel>
-          <Input
-            placeholder="Search..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            startDecorator={<SearchIcon />}
-          />
-        </FormControl>
-
-        <FormControl sx={{ minWidth: 200 }}>
-          <FormLabel>Date Range</FormLabel>
-          <Select
-            value={dateRangeFilter}
-            onChange={(e, newValue) => setDateRangeFilter(newValue)}
-            placeholder="Select date range"
-          >
-            <Option value="all">All Time</Option>
-            <Option value="today">Today</Option>
-            <Option value="last_7_days">Last 7 Days</Option>
-            <Option value="last_30_days">Last 30 Days</Option>
-            <Option value="custom">Custom Range</Option>
-          </Select>
-        </FormControl>
-
-        {dateRangeFilter === 'custom' && (
-          <>
-            <FormControl sx={{ minWidth: 200 }}>
-              <FormLabel>Start Date</FormLabel>
-              <Input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-              />
-            </FormControl>
-            <FormControl sx={{ minWidth: 200 }}>
-              <FormLabel>End Date</FormLabel>
-              <Input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-              />
-            </FormControl>
-          </>
-        )}
-
-        <FormControl sx={{ minWidth: 200 }}>
-          <FormLabel>Status</FormLabel>
-          <Select
-            value={deliveryStatusFilter}
-            onChange={(e, newValue) => setDeliveryStatusFilter(newValue)}
-            placeholder="Select status"
-          >
-            <Option value="all">All Statuses</Option>
-            <Option value="pending">Pending</Option>
-            <Option value="loading">Loading</Option>
-            <Option value="in_transit">In Transit</Option>
-            <Option value="delivered">Delivered</Option>
-            <Option value="cancelled">Cancelled</Option>
-          </Select>
-        </FormControl>
-
-        <FormControl sx={{ alignSelf: 'flex-end' }}>
-          <Button
-            startDecorator={<FilterAltOffIcon />}
-            onClick={resetFilters}
-            variant="outlined"
-            color="neutral"
-          >
-            Reset Filters
-          </Button>
-        </FormControl>
-      </Sheet>
+      <Card sx={{ mb: 3 }}>
+        <CardContent>
+          <Grid container spacing={2} alignItems="flex-end">
+            <Grid xs={12} md={6}>
+              <FormControl>
+                <FormLabel>Search</FormLabel>
+                <Input
+                  placeholder="Search by tracking number, recipient..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  startDecorator={<SearchIcon />}
+                />
+              </FormControl>
+            </Grid>
+            
+            <Grid xs={12} md={3}>
+              <FormControl>
+                <FormLabel>Status Filter</FormLabel>
+                <Select
+                  value={deliveryStatusFilter}
+                  onChange={(e, val) => setDeliveryStatusFilter(val)}
+                  startDecorator={<FilterAltIcon />}
+                >
+                  <Option value="all">All Statuses</Option>
+                  <Option value="pending">Pending</Option>
+                  <Option value="loading">Loading</Option>
+                  <Option value="in_transit">In Transit</Option>
+                  <Option value="delivered">Delivered</Option>
+                  <Option value="cancelled">Cancelled</Option>
+                </Select>
+              </FormControl>
+            </Grid>
+            
+            <Grid xs={12} md={3}>
+              <FormControl>
+                <FormLabel>Date Range</FormLabel>
+                <Select
+                  value={dateRangeFilter}
+                  onChange={(e, val) => setDateRangeFilter(val)}
+                  startDecorator={<CalendarTodayIcon />}
+                >
+                  <Option value="all">All Time</Option>
+                  <Option value="today">Today</Option>
+                  <Option value="last_7_days">Last 7 Days</Option>
+                  <Option value="last_30_days">Last 30 Days</Option>
+                  <Option value="custom">Custom Range</Option>
+                </Select>
+              </FormControl>
+            </Grid>
+            
+            {dateRangeFilter === 'custom' && (
+              <>
+                <Grid xs={12} md={6}>
+                  <FormControl>
+                    <FormLabel>Start Date</FormLabel>
+                    <Input
+                      type="date"
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                    />
+                  </FormControl>
+                </Grid>
+                <Grid xs={12} md={6}>
+                  <FormControl>
+                    <FormLabel>End Date</FormLabel>
+                    <Input
+                      type="date"
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                    />
+                  </FormControl>
+                </Grid>
+              </>
+            )}
+            
+            <Grid xs={12} display="flex" justifyContent="space-between" alignItems="center">
+              <Typography level="body-sm">
+                Showing {filteredDeliveries.length} of {deliveries.length} deliveries
+              </Typography>
+              
+              <Button
+                startDecorator={<FilterAltOffIcon />}
+                onClick={resetFilters}
+                variant="outlined"
+                color="neutral"
+                size="sm"
+              >
+                Reset Filters
+              </Button>
+            </Grid>
+          </Grid>
+        </CardContent>
+      </Card>
 
       {/* Deliveries Table */}
-      <Sheet
-        variant="outlined"
-        sx={{
-          width: '100%',
-          borderRadius: 'sm',
-          overflow: 'auto',
-          mb: 2,
-        }}
-      >
-        <Table stickyHeader hoverRow>
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Tracking No.</th>
-              <th>Branch</th>
-              <th>Status</th>
-              <th>Scheduled Date</th>
-              <th>Created Date</th>
-              <th style={{ width: '120px' }}>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {isLoadingDeliveries ? (
-              <tr>
-                <td colSpan={7} style={{ textAlign: 'center', padding: '2rem' }}>
-                  <CircularProgress size="sm" />
-                  <Typography level="body-sm" sx={{ mt: 1 }}>Loading deliveries...</Typography>
-                </td>
-              </tr>
-            ) : filteredDeliveries.length === 0 ? (
-              <tr>
-                <td colSpan={7} style={{ textAlign: 'center', padding: '2rem' }}>
-                  <Typography level="body-sm">No deliveries found</Typography>
-                </td>
-              </tr>
-            ) : (
-              filteredDeliveries.map((delivery) => (
-                <tr key={delivery.id}>
-                  <td>{delivery.id}</td>
-                  <td>{delivery.tracking_number}</td>
-                  <td>{branchNames[delivery.branch_id] || 'Unknown'}</td>
-                  <td>{renderDeliveryStatusChip(delivery.status)}</td>
-                  <td>{formatDate(delivery.scheduled_date)}</td>
-                  <td>{formatDate(delivery.created_at)}</td>
-                  <td>
-                    <Box sx={{ display: 'flex', gap: 1 }}>
-                      <Tooltip title="View Details">
-                        <IconButton 
-                          size="sm" 
-                          variant="plain" 
-                          color="neutral" 
-                          onClick={() => handleOpenDeliveryModal(delivery)}
-                        >
-                          <VisibilityIcon />
-                        </IconButton>
-                      </Tooltip>
-                    </Box>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </Table>
-      </Sheet>
+      {isLoadingDeliveries ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '30vh' }}>
+          <CircularProgress />
+        </Box>
+      ) : (
+        <>
+          {/* No deliveries found */}
+          {filteredDeliveries.length === 0 && (
+            <Alert
+              color="neutral"
+              sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '30vh' }}
+            >
+              No deliveries found for the selected criteria
+            </Alert>
+          )}
+          
+          {/* Deliveries table */}
+          {filteredDeliveries.length > 0 && (
+            <Sheet
+              variant="outlined"
+              sx={{ borderRadius: 'sm', overflow: 'auto', maxHeight: '60vh' }}
+            >
+              <Table stickyHeader hoverRow>
+                <thead>
+                  <tr>
+                    <th style={{ width: 80 }}>ID</th>
+                    <th style={{ width: 160 }}>Tracking #</th>
+                    <th>Branch</th>
+                    <th style={{ width: 120 }}>Status</th>
+                    <th style={{ width: 180 }}>Scheduled Date</th>
+                    <th style={{ width: 180 }}>Created Date</th>
+                    <th style={{ width: 100 }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredDeliveries.map((delivery) => (
+                    <tr key={delivery.id}>
+                      <td>{delivery.id}</td>
+                      <td>{delivery.tracking_number}</td>
+                      <td>{branchNames[delivery.branch_id] || 'Unknown'}</td>
+                      <td>{renderDeliveryStatusChip(delivery.status)}</td>
+                      <td>{formatDate(delivery.scheduled_date)}</td>
+                      <td>{formatDate(delivery.created_at)}</td>
+                      <td>
+                        <Tooltip title="View Details">
+                          <IconButton 
+                            size="sm" 
+                            variant="plain" 
+                            color="neutral" 
+                            onClick={() => handleOpenDeliveryModal(delivery)}
+                          >
+                            <VisibilityIcon />
+                          </IconButton>
+                        </Tooltip>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            </Sheet>
+          )}
+        </>
+      )}
       
       {/* Delivery Details Modal */}
       {selectedDelivery && (
@@ -438,7 +470,7 @@ const WarehouseHistory = () => {
           userId={user?.id}
         />
       )}
-    </div>
+    </Box>
   )
 }
 

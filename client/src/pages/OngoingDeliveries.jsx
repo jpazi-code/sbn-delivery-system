@@ -27,6 +27,9 @@ import Sheet from '@mui/joy/Sheet'
 import Grid from '@mui/joy/Grid'
 import Divider from '@mui/joy/Divider'
 import Table from '@mui/joy/Table'
+import FormControl from '@mui/joy/FormControl'
+import FormLabel from '@mui/joy/FormLabel'
+import Tooltip from '@mui/joy/Tooltip'
 
 // Icons
 import SearchIcon from '@mui/icons-material/Search'
@@ -40,6 +43,7 @@ import InventoryIcon from '@mui/icons-material/Inventory'
 import PendingActionsIcon from '@mui/icons-material/PendingActions'
 import FactCheckIcon from '@mui/icons-material/FactCheck'
 import VisibilityIcon from '@mui/icons-material/Visibility'
+import PriorityHighIcon from '@mui/icons-material/PriorityHigh'
 
 const OngoingDeliveries = () => {
   const { user } = useAuth()
@@ -347,42 +351,61 @@ const OngoingDeliveries = () => {
       </Grid>
 
       {/* Search and Filters */}
-      <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap' }}>
-        <Typography level="body-sm" sx={{ alignSelf: 'center', minWidth: '60px' }}>Search</Typography>
-        <Input
-          placeholder="Search by ID, order reference..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          startDecorator={<SearchIcon />}
-          sx={{ flex: 1, minWidth: '200px' }}
-        />
-        
-        <Typography level="body-sm" sx={{ alignSelf: 'center', ml: 2 }}>Status</Typography>
-        <Select
-          value={statusFilter}
-          onChange={(e, value) => setStatusFilter(value)}
-          placeholder="All Statuses"
-          sx={{ minWidth: 150 }}
-        >
-          <Option value="all">All Statuses</Option>
-          <Option value="preparing">Preparing</Option>
-          <Option value="loading">Loading</Option>
-          <Option value="in_transit">In Transit</Option>
-        </Select>
-
-        <Typography level="body-sm" sx={{ alignSelf: 'center', ml: 2 }}>Priority</Typography>
-        <Select
-          value={priorityFilter}
-          onChange={(e, value) => setPriorityFilter(value)}
-          placeholder="All Priorities"
-          sx={{ minWidth: 150 }}
-        >
-          <Option value="all">All Priorities</Option>
-          <Option value="low">Low</Option>
-          <Option value="medium">Medium</Option>
-          <Option value="high">High</Option>
-        </Select>
-      </Box>
+      <Card sx={{ mb: 3 }}>
+        <CardContent>
+          <Grid container spacing={2} alignItems="flex-end">
+            <Grid xs={12} md={4}>
+              <FormControl>
+                <FormLabel>Search</FormLabel>
+                <Input
+                  placeholder="Search by ID, order reference..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  startDecorator={<SearchIcon />}
+                />
+              </FormControl>
+            </Grid>
+            
+            <Grid xs={12} md={3}>
+              <FormControl>
+                <FormLabel>Status</FormLabel>
+                <Select
+                  value={statusFilter}
+                  onChange={(e, val) => setStatusFilter(val)}
+                  startDecorator={<FilterAltIcon />}
+                >
+                  <Option value="all">All Statuses</Option>
+                  <Option value="preparing">Preparing</Option>
+                  <Option value="loading">Loading</Option>
+                  <Option value="in_transit">In Transit</Option>
+                </Select>
+              </FormControl>
+            </Grid>
+            
+            <Grid xs={12} md={3}>
+              <FormControl>
+                <FormLabel>Priority</FormLabel>
+                <Select
+                  value={priorityFilter}
+                  onChange={(e, val) => setPriorityFilter(val)}
+                  startDecorator={<PriorityHighIcon />}
+                >
+                  <Option value="all">All Priorities</Option>
+                  <Option value="low">Low</Option>
+                  <Option value="medium">Medium</Option>
+                  <Option value="high">High</Option>
+                </Select>
+              </FormControl>
+            </Grid>
+            
+            <Grid xs={12} md={2} display="flex" justifyContent="flex-end">
+              <Typography level="body-sm" alignSelf="flex-end">
+                Showing {filteredDeliveries.length} of {deliveries.length} deliveries
+              </Typography>
+            </Grid>
+          </Grid>
+        </CardContent>
+      </Card>
 
       {/* Status Tabs */}
       <Tabs 
@@ -400,20 +423,26 @@ const OngoingDeliveries = () => {
 
       {/* Deliveries List */}
       {filteredDeliveries.length === 0 ? (
-        <Box sx={{ p: 3, textAlign: 'center', bgcolor: 'background.level1', borderRadius: 'sm' }}>
-          <Typography level="body-lg">No ongoing deliveries found</Typography>
-        </Box>
+        <Alert
+          color="neutral"
+          sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '30vh' }}
+        >
+          No deliveries found for the selected criteria
+        </Alert>
       ) : (
-        <Box sx={{ mt: 2 }}>
-          <Table>
+        <Sheet
+          variant="outlined"
+          sx={{ borderRadius: 'sm', overflow: 'auto', maxHeight: '60vh' }}
+        >
+          <Table stickyHeader hoverRow>
             <thead>
               <tr>
-                <th>ID</th>
-                <th>Tracking Number</th>
+                <th style={{ width: 80 }}>ID</th>
+                <th style={{ width: 160 }}>Tracking Number</th>
                 <th>Recipient</th>
-                <th>Status</th>
-                <th>Est. Delivery Date</th>
-                <th>Actions</th>
+                <th style={{ width: 120 }}>Status</th>
+                <th style={{ width: 180 }}>Est. Delivery Date</th>
+                <th style={{ width: 180 }}>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -421,7 +450,16 @@ const OngoingDeliveries = () => {
                 <tr key={delivery.id}>
                   <td>{delivery.id}</td>
                   <td>{delivery.tracking_number || 'N/A'}</td>
-                  <td>{delivery.recipient_name || 'N/A'}</td>
+                  <td>
+                    <Box>
+                      <Typography level="body-sm" fontWeight="md">
+                        {delivery.recipient_name || 'N/A'}
+                      </Typography>
+                      <Typography level="body-xs">
+                        {delivery.recipient_address?.substring(0, 30)}{delivery.recipient_address?.length > 30 ? '...' : ''}
+                      </Typography>
+                    </Box>
+                  </td>
                   <td>{renderStatusChip(delivery.status)}</td>
                   <td>{delivery.delivery_date ? new Date(delivery.delivery_date).toLocaleDateString() : 'Not scheduled'}</td>
                   <td>
@@ -449,10 +487,7 @@ const OngoingDeliveries = () => {
                       </Box>
                     )}
                     {delivery.status !== 'in_transit' && (
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Typography level="body-sm" color="neutral">
-                          Awaiting delivery
-                        </Typography>
+                      <Tooltip title="View Details">
                         <IconButton
                           size="sm"
                           variant="plain"
@@ -461,14 +496,14 @@ const OngoingDeliveries = () => {
                         >
                           <VisibilityIcon />
                         </IconButton>
-                      </Box>
+                      </Tooltip>
                     )}
                   </td>
                 </tr>
               ))}
             </tbody>
           </Table>
-        </Box>
+        </Sheet>
       )}
 
       {/* Confirmation Modal */}

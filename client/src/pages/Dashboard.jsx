@@ -23,6 +23,8 @@ import Alert from '@mui/joy/Alert'
 import Chip from '@mui/joy/Chip'
 import Select from '@mui/joy/Select'
 import Option from '@mui/joy/Option'
+import FormControl from '@mui/joy/FormControl'
+import FormLabel from '@mui/joy/FormLabel'
 
 // Icons
 import LocalShippingIcon from '@mui/icons-material/LocalShipping'
@@ -40,6 +42,10 @@ import BarChartIcon from '@mui/icons-material/BarChart'
 import SpeedIcon from '@mui/icons-material/Speed'
 import ScheduleIcon from '@mui/icons-material/Schedule'
 import AssessmentIcon from '@mui/icons-material/Assessment'
+import CalendarTodayIcon from '@mui/icons-material/CalendarToday'
+import CalendarViewWeekIcon from '@mui/icons-material/CalendarViewWeek'
+import CalendarViewMonthIcon from '@mui/icons-material/CalendarViewMonth'
+import DashboardIcon from '@mui/icons-material/Dashboard'
 
 const Dashboard = () => {
   const { user, loading: authLoading } = useAuth()
@@ -235,22 +241,45 @@ const Dashboard = () => {
   return (
     <Box sx={{ py: 2 }}>
       <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Box>
-          <Typography level="h2" sx={{ mb: 1 }}>
-            Welcome, {user?.full_name || user?.username || 'User'}!
-          </Typography>
-          <Typography level="h3">Dashboard</Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Sheet
+            variant="soft"
+            color="primary"
+            sx={{ 
+              p: 1.5, 
+              borderRadius: 'sm', 
+              display: 'flex', 
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            <DashboardIcon fontSize="large" />
+          </Sheet>
+          <Box>
+            <Typography level="h4">Dashboard</Typography>
+            <Typography level="body-md">
+              Welcome, {user?.full_name || user?.username || 'User'}!
+            </Typography>
+          </Box>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Select
-            value={timeframe}
-            onChange={handleTimeframeChange}
-            sx={{ minWidth: 150 }}
-          >
-            <Option value="month">Last Month</Option>
-            <Option value="3months">Last 3 Months</Option>
-            <Option value="year">Last Year</Option>
-          </Select>
+          <FormControl size="sm">
+            <FormLabel>Time Period</FormLabel>
+            <Select
+              value={timeframe}
+              onChange={handleTimeframeChange}
+              sx={{ minWidth: 150 }}
+              startDecorator={
+                timeframe === 'month' ? <CalendarTodayIcon /> :
+                timeframe === '3months' ? <CalendarViewWeekIcon /> :
+                <CalendarViewMonthIcon />
+              }
+            >
+              <Option value="month">Last Month</Option>
+              <Option value="3months">Last 3 Months</Option>
+              <Option value="year">Last Year</Option>
+            </Select>
+          </FormControl>
           
           {(isAdmin || isWarehouse) && (
             <Button
