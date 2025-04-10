@@ -149,14 +149,44 @@ const DeliveryRequestList = () => {
 
   // Handle request deletion
   const handleDelete = async (id) => {
-    if (window.confirm('Are you sure you want to delete this request?')) {
+    // Ensure the ID exists
+    if (!id) {
+      alert('Invalid request ID');
+      return;
+    }
+    
+    // Find the request to check permissions
+    const requestToDelete = requests.find(req => req.id === id);
+    if (!requestToDelete) {
+      alert('Request not found');
+      return;
+    }
+    
+    // Check permissions based on role
+    if (user.role === 'branch' && requestToDelete.branch_id !== user.branch_id) {
+      alert('You can only delete requests from your own branch');
+      return;
+    }
+    
+    // Don't allow deletion of already-processed requests
+    if (['processing', 'delivered'].includes(requestToDelete.request_status)) {
+      alert('Cannot delete requests that are being processed or have been delivered');
+      return;
+    }
+    
+    // Confirm deletion
+    if (window.confirm('Are you sure you want to archive this request? This cannot be undone.')) {
       try {
-        await axios.delete(`/api/delivery-requests/${id}`)
+        const response = await axios.delete(`/api/delivery-requests/${id}`);
+        
         // Update state to remove deleted request
-        setRequests(requests.filter(request => request.id !== id))
+        setRequests(requests.filter(request => request.id !== id));
+        
+        // Show success message
+        alert(response.data.message || 'Request archived successfully');
       } catch (err) {
-        console.error('Error deleting request:', err)
-        alert('Failed to delete request: ' + err.response?.data?.error || 'Unknown error')
+        console.error('Error deleting request:', err);
+        alert('Failed to delete request: ' + (err.response?.data?.error || 'Unknown error'));
       }
     }
   }
@@ -285,6 +315,88 @@ const DeliveryRequestList = () => {
     const branch = branches.find(b => b.id === parseInt(branchId))
     return branch ? branch.name : 'Unknown Branch'
   }
+
+  // Render action buttons based on user role and request status
+  const renderActions = (request) => {
+    const isPending = request.request_status === 'pending';
+    const isApproved = request.request_status === 'approved';
+    const isRejected = request.request_status === 'rejected';
+    const isProcessing = request.request_status === 'processing';
+    const isDelivered = request.request_status === 'delivered';
+    const isCancelled = request.request_status === 'cancelled';
+    
+    const userCanDelete = 
+      (isBranchUser && request.branch_id === user.branch_id && (isPending || isRejected || isCancelled)) || 
+      (isAdmin && (isPending || isRejected || isCancelled));
+    
+    return (
+      <Box sx={{ display: 'flex', gap: 1 }}>
+        <Tooltip title="View Details">
+          <IconButton
+            size="sm"
+            variant="plain"
+            color="neutral"
+            onClick={() => openDetailsModal(request)}
+          >
+            <VisibilityIcon />
+          </IconButton>
+        </Tooltip>
+        
+        {canApproveRequests && isPending && (
+          <>
+            <Tooltip title="Approve">
+              <IconButton
+                size="sm"
+                variant="plain"
+                color="success"
+                onClick={() => openApproveModal(request)}
+              >
+                <CheckCircleIcon />
+              </IconButton>
+            </Tooltip>
+            
+            <Tooltip title="Reject">
+              <IconButton
+                size="sm"
+                variant="plain"
+                color="danger"
+                onClick={() => openRejectModal(request)}
+              >
+                <CancelIcon />
+              </IconButton>
+            </Tooltip>
+          </>
+        )}
+        
+        {canApproveRequests && isApproved && (
+          <Tooltip title="Create Delivery">
+            <Button
+              size="sm"
+              variant="soft"
+              color="primary"
+              startDecorator={<ShoppingCartCheckoutIcon />}
+              onClick={() => handleProcessDelivery(request)}
+            >
+              Process
+            </Button>
+          </Tooltip>
+        )}
+        
+        {userCanDelete && (
+          <Tooltip title="Archive">
+            <IconButton
+              size="sm"
+              variant="plain"
+              color="danger"
+              onClick={() => handleDelete(request.id)}
+            >
+              <DeleteIcon />
+            </IconButton>
+          </Tooltip>
+        )}
+      </Box>
+    );
+  };
 
   if (loading) {
     return (
@@ -463,46 +575,7 @@ const DeliveryRequestList = () => {
                     </Box>
                     
                     <Box sx={{ display: 'flex', gap: 1 }}>
-                      {/* Add Process Delivery button for warehouse users on approved requests */}
-                      {canApproveRequests && request.request_status === 'approved' && (
-                        <Button
-                          size="sm"
-                          color="primary"
-                          variant="soft"
-                          startDecorator={<ShoppingCartCheckoutIcon />}
-                          onClick={() => handleProcessDelivery(request)}
-                        >
-                          Process Delivery
-                        </Button>
-                      )}
-                      
-                      <Button
-                        size="sm"
-                        variant="outlined"
-                        startDecorator={<VisibilityIcon />}
-                        onClick={() => openDetailsModal(request)}
-                      >
-                        View Details
-                      </Button>
-                      
-                      {canApproveRequests && request.request_status === 'pending' && (
-                        <ButtonGroup size="sm">
-                          <Button
-                            color="success"
-                            startDecorator={<CheckCircleIcon />}
-                            onClick={() => openApproveModal(request)}
-                          >
-                            Approve
-                          </Button>
-                          <Button
-                            color="danger"
-                            startDecorator={<CancelIcon />}
-                            onClick={() => openRejectModal(request)}
-                          >
-                            Reject
-                          </Button>
-                        </ButtonGroup>
-                      )}
+                      {renderActions(request)}
                     </Box>
                   </Box>
                   

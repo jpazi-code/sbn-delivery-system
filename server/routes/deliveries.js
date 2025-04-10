@@ -290,6 +290,12 @@ router.post('/', async (req, res) => {
         return res.status(400).json({ error: `Delivery request with ID ${parsedRequestId} not found` });
       }
       console.log(`Creating delivery from request ID: ${parsedRequestId}`);
+      
+      // Check if this request already has a delivery associated with it
+      const deliveryCheck = await db.query('SELECT * FROM deliveries WHERE request_id = $1', [parsedRequestId]);
+      if (deliveryCheck.rows.length > 0) {
+        return res.status(400).json({ error: `A delivery already exists for request ID ${parsedRequestId}` });
+      }
     }
     
     // Generate a unique tracking number
@@ -315,34 +321,78 @@ router.post('/', async (req, res) => {
     
     console.log(`Creating new delivery with tracking: ${trackingNumber}, status: ${deliveryStatus}`);
     
-    const result = await db.query(`
-      INSERT INTO deliveries (
-        tracking_number, 
-        recipient_name, 
-        recipient_address, 
-        recipient_phone, 
-        package_description, 
-        weight,
-        delivery_date,
-        status,
-        branch_id,
-        created_by,
-        request_id
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-      RETURNING *
-    `, [
-      trackingNumber, 
-      trimmedRecipientName, 
-      trimmedRecipientAddress, 
-      trimmedRecipientPhone, 
-      trimmedPackageDescription, 
-      weight || null,
-      delivery_date || null,
-      deliveryStatus,
-      parsedBranchId,
-      req.user.id,
-      parsedRequestId
-    ]);
+    // If this is from a request, use the request ID as the delivery ID
+    let query;
+    let queryParams;
+    
+    if (parsedRequestId) {
+      // Use the request ID for the delivery ID to keep them in sync
+      query = `
+        INSERT INTO deliveries (
+          id,
+          tracking_number, 
+          recipient_name, 
+          recipient_address, 
+          recipient_phone, 
+          package_description, 
+          weight,
+          delivery_date,
+          status,
+          branch_id,
+          created_by,
+          request_id
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        RETURNING *
+      `;
+      queryParams = [
+        parsedRequestId, // Use request_id as the delivery id
+        trackingNumber, 
+        trimmedRecipientName, 
+        trimmedRecipientAddress, 
+        trimmedRecipientPhone, 
+        trimmedPackageDescription, 
+        weight || null,
+        delivery_date || null,
+        deliveryStatus,
+        parsedBranchId,
+        req.user.id,
+        parsedRequestId
+      ];
+    } else {
+      // Regular delivery, let the database assign an ID
+      query = `
+        INSERT INTO deliveries (
+          tracking_number, 
+          recipient_name, 
+          recipient_address, 
+          recipient_phone, 
+          package_description, 
+          weight,
+          delivery_date,
+          status,
+          branch_id,
+          created_by,
+          request_id
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        RETURNING *
+      `;
+      queryParams = [
+        trackingNumber, 
+        trimmedRecipientName, 
+        trimmedRecipientAddress, 
+        trimmedRecipientPhone, 
+        trimmedPackageDescription, 
+        weight || null,
+        delivery_date || null,
+        deliveryStatus,
+        parsedBranchId,
+        req.user.id,
+        parsedRequestId
+      ];
+    }
+    
+    // Execute the insert query
+    const result = await db.query(query, queryParams);
     
     // Return full delivery with branch info
     const deliveryWithBranch = await db.query(`
@@ -357,9 +407,11 @@ router.post('/', async (req, res) => {
       try {
         await db.query(`
           UPDATE delivery_requests 
-          SET request_status = 'processing', updated_at = CURRENT_TIMESTAMP
+          SET request_status = 'processing', 
+              updated_at = CURRENT_TIMESTAMP,
+              delivery_id = $2
           WHERE id = $1
-        `, [parsedRequestId]);
+        `, [parsedRequestId, result.rows[0].id]);
         
         // Clear the processing status for this request
         await db.query(`
@@ -377,7 +429,12 @@ router.post('/', async (req, res) => {
     console.error('Create delivery error:', error);
     
     if (error.code === '23505') { // Unique violation
-      return res.status(400).json({ error: 'Tracking number already exists' });
+      if (error.detail && error.detail.includes('tracking_number')) {
+        return res.status(400).json({ error: 'Tracking number already exists' });
+      } else if (error.detail && error.detail.includes('pkey')) {
+        return res.status(400).json({ error: 'A delivery with this ID already exists' });
+      }
+      return res.status(400).json({ error: 'Unique constraint violation' });
     }
     
     res.status(500).json({ error: 'Server error' });
