@@ -10,6 +10,7 @@ const deliveryRoutes = require('./routes/deliveries');
 const deliveryRequestsRoutes = require('./routes/delivery-requests');
 const branchesRoutes = require('./routes/branches');
 const analyticsRoutes = require('./routes/analytics');
+const adminRoutes = require('./routes/admin');
 const { authenticateToken } = require('./middleware/auth');
 
 // Initialize express app
@@ -43,6 +44,7 @@ app.use('/api/deliveries', deliveryRoutes);
 app.use('/api/delivery-requests', deliveryRequestsRoutes);
 app.use('/api/branches', branchesRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Add compatibility layer for old /api/requests endpoint
 app.use('/api/requests', (req, res) => {
