@@ -15,8 +15,7 @@ import NotFound from './pages/NotFound'
 import CompanyDirectory from './pages/CompanyDirectory/CompanyDirectory'
 import Settings from './pages/Settings'
 import DeliveryDetails from './pages/DeliveryDetails'
-import BranchHistory from './pages/BranchHistory'
-import WarehouseHistory from './pages/WarehouseHistory'
+import Archive from './pages/Archive'
 
 // Layout
 import Layout from './components/Layout'
@@ -75,9 +74,8 @@ function App() {
         {/* Delivery Details - Available to all users */}
         <Route path="delivery-details/:id" element={<DeliveryDetails />} />
         
-        {/* History Pages */}
-        <Route path="branch-history" element={<BranchHistory />} />
-        <Route path="warehouse-history" element={<WarehouseHistory />} />
+        {/* Archive Page - Replaces history pages */}
+        <Route path="archive" element={<Archive />} />
         
         {/* Ongoing Deliveries - Available to branch users and admin */}
         <Route path="ongoing-deliveries" element={<OngoingDeliveries />} />

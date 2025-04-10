@@ -12,42 +12,54 @@ router.use(authenticateToken);
 router.get('/', async (req, res) => {
   try {
     const { role, id, branch_id } = req.user;
-    let result;
+    
+    // Build the base query
+    let query = `
+      SELECT 
+        dr.*,
+        b.name as branch_name,
+        creator.full_name as requested_by,
+        creator.username
+      FROM delivery_requests dr
+      JOIN branches b ON dr.branch_id = b.id
+      LEFT JOIN users creator ON creator.id = dr.created_by_id
+      WHERE 1=1
+    `;
+    
+    const queryParams = [];
+    let paramIndex = 1;
 
-    console.log(`Getting delivery requests for user: ${id}, role: ${role}`);
-
-    if (role === 'admin' || role === 'warehouse') {
-      // Admin and warehouse users can see all requests
-      result = await db.query(`
-        SELECT 
-          dr.*,
-          b.name as branch_name,
-          creator.full_name as requested_by,
-          creator.username
-        FROM delivery_requests dr
-        JOIN branches b ON dr.branch_id = b.id
-        LEFT JOIN users creator ON creator.id = dr.created_by_id
-        ORDER BY dr.created_at DESC
-      `);
-    } else if (role === 'branch') {
+    // Apply role-based restrictions
+    if (role === 'branch') {
       // Branch users can only see their own requests
-      result = await db.query(`
-        SELECT 
-          dr.*,
-          b.name as branch_name,
-          creator.full_name as requested_by,
-          creator.username
-        FROM delivery_requests dr
-        JOIN branches b ON dr.branch_id = b.id
-        LEFT JOIN users creator ON creator.id = dr.created_by_id
-        WHERE dr.branch_id = $1
-        ORDER BY dr.created_at DESC
-      `, [branch_id]);
-    } else {
+      query += ` AND dr.branch_id = $${paramIndex}`;
+      queryParams.push(branch_id);
+      paramIndex++;
+    } else if (role !== 'admin' && role !== 'warehouse') {
       return res.status(403).json({ error: 'Unauthorized role for this operation' });
     }
+    
+    // Filter by branch_id if specified in the query (for admin/warehouse)
+    if ((role === 'admin' || role === 'warehouse') && req.query.branch_id && req.query.branch_id !== 'all') {
+      query += ` AND dr.branch_id = $${paramIndex}`;
+      queryParams.push(req.query.branch_id);
+      paramIndex++;
+    }
+    
+    // Filter for ongoing requests if requested
+    if (req.query.ongoing === 'true') {
+      query += ` AND dr.request_status IN ('pending', 'approved', 'processing')`;
+    }
+    
+    // Filter for non-archived requests by default, unless explicitly requesting archived
+    if (req.query.archived !== 'true' && req.query.is_archived !== 'true') {
+      query += ` AND (dr.is_archived = FALSE OR dr.is_archived IS NULL)`;
+    }
+    
+    // Order by newest first
+    query += ` ORDER BY dr.created_at DESC`;
 
-    console.log(`Found ${result.rows.length} requests`);
+    const result = await db.query(query, queryParams);
 
     // Add items for each delivery request
     const requests = result.rows;
@@ -392,51 +404,47 @@ router.put('/:id/status', async (req, res) => {
 // Delete delivery request
 router.delete('/:id', async (req, res) => {
   try {
-    const { id } = req.params;
-    const { role, id: userId } = req.user;
+    const { role, branch_id } = req.user;
+    const requestId = parseInt(req.params.id, 10);
     
-    // Check if request exists and belongs to user
-    const checkResult = await db.query('SELECT * FROM delivery_requests WHERE id = $1', [id]);
+    if (isNaN(requestId)) {
+      return res.status(400).json({ error: 'Invalid request ID' });
+    }
     
-    if (checkResult.rows.length === 0) {
+    // Check if request exists and belongs to user's branch (for branch users)
+    const requestCheck = await db.query(`
+      SELECT * FROM delivery_requests WHERE id = $1
+    `, [requestId]);
+    
+    if (requestCheck.rows.length === 0) {
       return res.status(404).json({ error: 'Delivery request not found' });
     }
     
-    const request = checkResult.rows[0];
+    const request = requestCheck.rows[0];
     
-    // Only admin or the branch user who created the request can delete it
-    if (role !== 'admin' && (role !== 'branch' || request.branch_id !== userId)) {
-      return res.status(403).json({ error: 'Unauthorized to delete this request' });
+    // Branch users can only delete their own branch's requests
+    if (role === 'branch' && request.branch_id !== branch_id) {
+      return res.status(403).json({ error: 'You can only delete requests from your own branch' });
     }
     
-    // Branch users can only delete pending requests
-    if (role === 'branch' && request.request_status !== 'pending') {
-      return res.status(403).json({ 
-        error: 'Cannot delete a request that has already been approved or rejected' 
-      });
-    }
+    // Archive the request instead of deleting it
+    await db.query(`
+      UPDATE delivery_requests
+      SET is_archived = true,
+          request_status = CASE 
+            WHEN request_status NOT IN ('delivered', 'cancelled', 'rejected') 
+            THEN 'cancelled' 
+            ELSE request_status 
+          END,
+          updated_at = CURRENT_TIMESTAMP,
+          archived_by = $1,
+          archived_at = CURRENT_TIMESTAMP
+      WHERE id = $2
+    `, [req.user.id, requestId]);
     
-    // Start a transaction
-    const client = await db.query('BEGIN');
-    
-    try {
-      // Delete all items first (cascade will handle this automatically, but being explicit)
-      await db.query('DELETE FROM delivery_request_items WHERE request_id = $1', [id]);
-      
-      // Delete the request
-      await db.query('DELETE FROM delivery_requests WHERE id = $1', [id]);
-      
-      // Commit the transaction
-      await db.query('COMMIT');
-      
-      res.status(200).json({ message: 'Delivery request deleted successfully' });
-    } catch (error) {
-      // Rollback the transaction on error
-      await db.query('ROLLBACK');
-      throw error;
-    }
+    res.json({ message: 'Delivery request archived successfully' });
   } catch (error) {
-    console.error('Delete delivery request error:', error);
+    console.error('Archive delivery request error:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -572,6 +580,105 @@ router.post('/:id/unmark-processing', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Error unmarking request as processing:', error);
     res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Get archived delivery requests
+router.get('/archive', async (req, res) => {
+  try {
+    const { role, id, branch_id } = req.user;
+    
+    // Check role-based access
+    if (role !== 'admin' && role !== 'warehouse' && role !== 'branch') {
+      return res.status(403).json({ error: 'Unauthorized access' });
+    }
+
+    let query = `
+      SELECT 
+        dr.*,
+        b.name as branch_name,
+        creator.full_name as requested_by,
+        creator.username
+      FROM delivery_requests dr
+      JOIN branches b ON dr.branch_id = b.id
+      LEFT JOIN users creator ON creator.id = dr.created_by_id
+      WHERE (dr.request_status = 'delivered' OR dr.request_status = 'cancelled' 
+             OR dr.request_status = 'rejected' OR dr.is_archived = true)
+    `;
+    
+    const queryParams = [];
+    let paramCount = 1;
+
+    // Branch users can only see their branch's archive
+    if (role === 'branch') {
+      query += ` AND dr.branch_id = $${paramCount}`;
+      queryParams.push(branch_id);
+      paramCount++;
+    } 
+    // Admin/warehouse users can filter by branch if specified
+    else if ((role === 'admin' || role === 'warehouse') && req.query.branch_id && req.query.branch_id !== 'all') {
+      query += ` AND dr.branch_id = $${paramCount}`;
+      queryParams.push(req.query.branch_id);
+      paramCount++;
+    }
+
+    // Date filtering
+    if (req.query.date_range) {
+      let dateCondition;
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      switch(req.query.date_range) {
+        case 'today':
+          dateCondition = `DATE(dr.created_at) = CURRENT_DATE`;
+          break;
+        case 'last_7_days':
+          dateCondition = `dr.created_at >= CURRENT_DATE - INTERVAL '7 days'`;
+          break;
+        case 'last_30_days':
+          dateCondition = `dr.created_at >= CURRENT_DATE - INTERVAL '30 days'`;
+          break;
+        case 'last_90_days':
+          dateCondition = `dr.created_at >= CURRENT_DATE - INTERVAL '90 days'`;
+          break;
+        default:
+          dateCondition = null;
+      }
+
+      if (dateCondition) {
+        query += ` AND ${dateCondition}`;
+      }
+    } 
+    // Custom date range
+    else if (req.query.start_date && req.query.end_date) {
+      query += ` AND DATE(dr.created_at) BETWEEN $${paramCount} AND $${paramCount + 1}`;
+      queryParams.push(req.query.start_date);
+      paramCount++;
+      queryParams.push(req.query.end_date);
+      paramCount++;
+    }
+
+    // Order by newest first
+    query += ` ORDER BY dr.created_at DESC`;
+
+    const result = await db.query(query, queryParams);
+    
+    // Add items for each delivery request
+    const requests = result.rows;
+    for (const request of requests) {
+      const itemsResult = await db.query(`
+        SELECT * FROM delivery_request_items 
+        WHERE request_id = $1
+        ORDER BY id
+      `, [request.id]);
+      
+      request.items = itemsResult.rows;
+    }
+
+    res.status(200).json(requests);
+  } catch (error) {
+    console.error('Get archived delivery requests error:', error);
+    res.status(500).json({ error: 'Server error' });
   }
 });
 

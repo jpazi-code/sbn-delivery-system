@@ -43,6 +43,10 @@ CREATE TABLE IF NOT EXISTS delivery_requests (
   notes TEXT,
   total_amount DECIMAL(10, 2) DEFAULT 0,
   processed_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_by_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  is_archived BOOLEAN DEFAULT FALSE,
+  archived_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  archived_at TIMESTAMP,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -65,6 +69,10 @@ CREATE TABLE IF NOT EXISTS deliveries (
   driver_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
   created_by INTEGER REFERENCES users(id),
   request_id INTEGER REFERENCES delivery_requests(id) ON DELETE SET NULL,
+  cancel_reason TEXT,
+  is_archived BOOLEAN DEFAULT FALSE,
+  archived_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  archived_at TIMESTAMP,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
