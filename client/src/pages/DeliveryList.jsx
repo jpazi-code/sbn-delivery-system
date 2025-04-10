@@ -326,12 +326,16 @@ const DeliveryList = () => {
         d.id === delivery.id ? response.data : d
       ));
       
+      // Show success message
+      setError({ type: 'success', message: `Delivery status updated to ${nextStatus}` });
+      setTimeout(() => setError(null), 5000); // Clear message after 5 seconds
+      
       // Refresh deliveries to update stats
       fetchDeliveries();
     } catch (err) {
       console.error('Error updating delivery status:', err);
       // Use in-app alert instead of browser alert
-      setError('Failed to update status: ' + (err.response?.data?.error || 'Unknown error'));
+      setError({ type: 'error', message: 'Failed to update status: ' + (err.response?.data?.error || 'Unknown error') });
       setTimeout(() => setError(null), 5000); // Clear error after 5 seconds
     }
   };
