@@ -80,6 +80,110 @@ router.get('/', async (req, res) => {
   }
 });
 
+// Get archived delivery requests
+router.get('/archive', async (req, res) => {
+  try {
+    console.log('Archive delivery requests API called with query:', req.query);
+    const { role, id, branch_id } = req.user;
+    
+    // Check role-based access
+    if (role !== 'admin' && role !== 'warehouse' && role !== 'branch') {
+      return res.status(403).json({ error: 'Unauthorized access' });
+    }
+
+    let query = `
+      SELECT 
+        dr.*,
+        b.name as branch_name,
+        creator.full_name as requested_by,
+        creator.username
+      FROM delivery_requests dr
+      JOIN branches b ON dr.branch_id = b.id
+      LEFT JOIN users creator ON creator.id = dr.created_by_id
+      WHERE (dr.request_status = 'delivered' OR dr.request_status = 'cancelled' 
+             OR dr.request_status = 'rejected' OR dr.is_archived = true)
+    `;
+    
+    const queryParams = [];
+    let paramCount = 1;
+
+    // Branch users can only see their branch's archive
+    if (role === 'branch') {
+      query += ` AND dr.branch_id = $${paramCount}`;
+      queryParams.push(branch_id);
+      paramCount++;
+    } 
+    // Admin/warehouse users can filter by branch if specified
+    else if ((role === 'admin' || role === 'warehouse') && req.query.branch_id && req.query.branch_id !== 'all') {
+      query += ` AND dr.branch_id = $${paramCount}`;
+      queryParams.push(req.query.branch_id);
+      paramCount++;
+    }
+
+    // Date filtering
+    if (req.query.date_range) {
+      let dateCondition;
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      switch(req.query.date_range) {
+        case 'today':
+          dateCondition = `DATE(dr.created_at) = CURRENT_DATE`;
+          break;
+        case 'last_7_days':
+          dateCondition = `dr.created_at >= CURRENT_DATE - INTERVAL '7 days'`;
+          break;
+        case 'last_30_days':
+          dateCondition = `dr.created_at >= CURRENT_DATE - INTERVAL '30 days'`;
+          break;
+        case 'last_90_days':
+          dateCondition = `dr.created_at >= CURRENT_DATE - INTERVAL '90 days'`;
+          break;
+        default:
+          dateCondition = null;
+      }
+
+      if (dateCondition) {
+        query += ` AND ${dateCondition}`;
+      }
+    } 
+    // Custom date range
+    else if (req.query.start_date && req.query.end_date) {
+      query += ` AND DATE(dr.created_at) BETWEEN $${paramCount} AND $${paramCount + 1}`;
+      queryParams.push(req.query.start_date);
+      paramCount++;
+      queryParams.push(req.query.end_date);
+      paramCount++;
+    }
+
+    // Order by newest first
+    query += ` ORDER BY dr.created_at DESC`;
+
+    console.log('Executing SQL query:', query);
+    console.log('With parameters:', queryParams);
+    
+    const result = await db.query(query, queryParams);
+    console.log(`Found ${result.rows.length} archived requests`);
+    
+    // Add items for each delivery request
+    const requests = result.rows;
+    for (const request of requests) {
+      const itemsResult = await db.query(`
+        SELECT * FROM delivery_request_items 
+        WHERE request_id = $1
+        ORDER BY id
+      `, [request.id]);
+      
+      request.items = itemsResult.rows;
+    }
+
+    res.status(200).json(requests);
+  } catch (error) {
+    console.error('Get archived delivery requests error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // Get delivery request by id
 router.get('/:id', async (req, res) => {
   try {
@@ -580,105 +684,6 @@ router.post('/:id/unmark-processing', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Error unmarking request as processing:', error);
     res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// Get archived delivery requests
-router.get('/archive', async (req, res) => {
-  try {
-    const { role, id, branch_id } = req.user;
-    
-    // Check role-based access
-    if (role !== 'admin' && role !== 'warehouse' && role !== 'branch') {
-      return res.status(403).json({ error: 'Unauthorized access' });
-    }
-
-    let query = `
-      SELECT 
-        dr.*,
-        b.name as branch_name,
-        creator.full_name as requested_by,
-        creator.username
-      FROM delivery_requests dr
-      JOIN branches b ON dr.branch_id = b.id
-      LEFT JOIN users creator ON creator.id = dr.created_by_id
-      WHERE (dr.request_status = 'delivered' OR dr.request_status = 'cancelled' 
-             OR dr.request_status = 'rejected' OR dr.is_archived = true)
-    `;
-    
-    const queryParams = [];
-    let paramCount = 1;
-
-    // Branch users can only see their branch's archive
-    if (role === 'branch') {
-      query += ` AND dr.branch_id = $${paramCount}`;
-      queryParams.push(branch_id);
-      paramCount++;
-    } 
-    // Admin/warehouse users can filter by branch if specified
-    else if ((role === 'admin' || role === 'warehouse') && req.query.branch_id && req.query.branch_id !== 'all') {
-      query += ` AND dr.branch_id = $${paramCount}`;
-      queryParams.push(req.query.branch_id);
-      paramCount++;
-    }
-
-    // Date filtering
-    if (req.query.date_range) {
-      let dateCondition;
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-
-      switch(req.query.date_range) {
-        case 'today':
-          dateCondition = `DATE(dr.created_at) = CURRENT_DATE`;
-          break;
-        case 'last_7_days':
-          dateCondition = `dr.created_at >= CURRENT_DATE - INTERVAL '7 days'`;
-          break;
-        case 'last_30_days':
-          dateCondition = `dr.created_at >= CURRENT_DATE - INTERVAL '30 days'`;
-          break;
-        case 'last_90_days':
-          dateCondition = `dr.created_at >= CURRENT_DATE - INTERVAL '90 days'`;
-          break;
-        default:
-          dateCondition = null;
-      }
-
-      if (dateCondition) {
-        query += ` AND ${dateCondition}`;
-      }
-    } 
-    // Custom date range
-    else if (req.query.start_date && req.query.end_date) {
-      query += ` AND DATE(dr.created_at) BETWEEN $${paramCount} AND $${paramCount + 1}`;
-      queryParams.push(req.query.start_date);
-      paramCount++;
-      queryParams.push(req.query.end_date);
-      paramCount++;
-    }
-
-    // Order by newest first
-    query += ` ORDER BY dr.created_at DESC`;
-
-    const result = await db.query(query, queryParams);
-    
-    // Add items for each delivery request
-    const requests = result.rows;
-    for (const request of requests) {
-      const itemsResult = await db.query(`
-        SELECT * FROM delivery_request_items 
-        WHERE request_id = $1
-        ORDER BY id
-      `, [request.id]);
-      
-      request.items = itemsResult.rows;
-    }
-
-    res.status(200).json(requests);
-  } catch (error) {
-    console.error('Get archived delivery requests error:', error);
-    res.status(500).json({ error: 'Server error' });
   }
 });
 

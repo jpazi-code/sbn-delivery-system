@@ -75,16 +75,10 @@ const Layout = () => {
       roles: ['admin', 'warehouse', 'branch']
     },
     {
-      label: 'Ongoing Deliveries',
-      path: '/ongoing-deliveries',
-      icon: <LocalShippingIcon />,
-      roles: ['admin', 'branch']
-    },
-    {
       label: 'Deliveries',
       path: '/deliveries',
       icon: <LocalShippingIcon />,
-      roles: ['admin', 'warehouse']
+      roles: ['admin', 'warehouse', 'branch']
     },
     {
       label: 'Company Directory',

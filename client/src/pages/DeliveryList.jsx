@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link as RouterLink } from 'react-router-dom'
 import axios from 'axios'
+import { useAuth } from '../contexts/AuthContext'
 
 // Joy UI components
 import Box from '@mui/joy/Box'
@@ -21,6 +22,14 @@ import Tooltip from '@mui/joy/Tooltip'
 import Modal from '@mui/joy/Modal'
 import ModalDialog from '@mui/joy/ModalDialog'
 import ModalClose from '@mui/joy/ModalClose'
+import Card from '@mui/joy/Card'
+import CardContent from '@mui/joy/CardContent'
+import Divider from '@mui/joy/Divider'
+import Grid from '@mui/joy/Grid'
+import Tab from '@mui/joy/Tab'
+import TabList from '@mui/joy/TabList'
+import Tabs from '@mui/joy/Tabs'
+import TabPanel from '@mui/joy/TabPanel'
 
 // Icons
 import AddIcon from '@mui/icons-material/Add'
@@ -32,14 +41,22 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import LocalShippingIcon from '@mui/icons-material/LocalShipping'
 import InventoryIcon from '@mui/icons-material/Inventory'
 import CancelIcon from '@mui/icons-material/Cancel'
+import RefreshIcon from '@mui/icons-material/Refresh'
+import WarehouseIcon from '@mui/icons-material/Warehouse'
+import PendingIcon from '@mui/icons-material/Pending'
+import VisibilityIcon from '@mui/icons-material/Visibility'
+import FilterAltIcon from '@mui/icons-material/FilterAlt'
+import FilterAltOffIcon from '@mui/icons-material/FilterAltOff'
 
 const DeliveryList = () => {
+  const { user } = useAuth()
   const [deliveries, setDeliveries] = useState([])
   const [filteredDeliveries, setFilteredDeliveries] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
+  const [viewTab, setViewTab] = useState(0) // 0 = All Deliveries, 1 = Ongoing Only
   
   // State for status update modal
   const [statusModalOpen, setStatusModalOpen] = useState(false)
@@ -47,25 +64,96 @@ const DeliveryList = () => {
   const [newStatus, setNewStatus] = useState('')
   const [updateLoading, setUpdateLoading] = useState(false)
 
-  // Fetch deliveries on component mount
-  useEffect(() => {
-    const fetchDeliveries = async () => {
-      try {
-        setLoading(true)
-        const response = await axios.get('/api/deliveries')
-        setDeliveries(response.data)
-        setFilteredDeliveries(response.data)
-        setError(null)
-      } catch (err) {
-        console.error('Error fetching deliveries:', err)
-        setError('Failed to load deliveries')
-      } finally {
-        setLoading(false)
-      }
-    }
+  // State for delivery details modal
+  const [detailsModalOpen, setDetailsModalOpen] = useState(false)
 
+  // Stats for ongoing deliveries
+  const [stats, setStats] = useState({
+    total: 0,
+    inTransit: 0,
+    loading: 0,
+    preparing: 0
+  })
+
+  const isAdmin = user?.role === 'admin'
+  const isBranchUser = user?.role === 'branch'
+  const isWarehouseUser = user?.role === 'warehouse'
+
+  // Combine fetchAllDeliveries and fetchOngoingDeliveries into a single function
+  const fetchDeliveries = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      
+      // Choose endpoint based on user role
+      let endpoint = '/api/deliveries'
+      let params = {}
+      
+      // For branch users, always fetch from branch endpoint
+      if (isBranchUser) {
+        endpoint = '/api/deliveries/branch'
+      }
+      
+      // If viewing only ongoing deliveries, add the ongoing flag
+      if (viewTab === 1) {
+        params.ongoing = true
+      }
+      
+      const response = await axios.get(endpoint, { params })
+      
+      if (!response.data || !Array.isArray(response.data)) {
+        throw new Error('Invalid data received from server')
+      }
+      
+      // When in ongoing view, filter to only show active deliveries
+      let filteredData = response.data
+      if (viewTab === 1) {
+        filteredData = response.data.filter(delivery => 
+          delivery && typeof delivery === 'object' &&
+          delivery.status && 
+          ['preparing', 'loading', 'in_transit'].includes(delivery.status)
+        )
+      }
+      
+      setDeliveries(filteredData)
+      setFilteredDeliveries(filteredData)
+      
+      // Calculate stats for ongoing deliveries
+      const ongoingDeliveries = response.data.filter(d => 
+        ['preparing', 'loading', 'in_transit'].includes(d.status)
+      )
+      
+      const total = ongoingDeliveries.length
+      const inTransit = ongoingDeliveries.filter(d => d.status === 'in_transit').length
+      const loading = ongoingDeliveries.filter(d => d.status === 'loading').length
+      const preparing = ongoingDeliveries.filter(d => d.status === 'preparing').length
+      
+      setStats({
+        total,
+        inTransit,
+        loading,
+        preparing
+      })
+    } catch (err) {
+      console.error('Error fetching deliveries:', err)
+      setError('Failed to load deliveries')
+      setDeliveries([])
+      setFilteredDeliveries([])
+      setStats({
+        total: 0,
+        inTransit: 0,
+        loading: 0,
+        preparing: 0
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Fetch deliveries on component mount and when view tab changes
+  useEffect(() => {
     fetchDeliveries()
-  }, [])
+  }, [user, viewTab])
 
   // Filter deliveries when search term or status filter changes
   useEffect(() => {
@@ -81,9 +169,12 @@ const DeliveryList = () => {
       const lowerSearchTerm = searchTerm.toLowerCase()
       result = result.filter(
         delivery =>
-          delivery.tracking_number.toLowerCase().includes(lowerSearchTerm) ||
-          delivery.recipient_name.toLowerCase().includes(lowerSearchTerm) ||
-          delivery.recipient_address.toLowerCase().includes(lowerSearchTerm)
+          (delivery.tracking_number && delivery.tracking_number.toLowerCase().includes(lowerSearchTerm)) ||
+          (delivery.recipient_name && delivery.recipient_name.toLowerCase().includes(lowerSearchTerm)) ||
+          (delivery.id && delivery.id.toString().includes(lowerSearchTerm)) ||
+          (delivery.branch_name && delivery.branch_name.toLowerCase().includes(lowerSearchTerm)) ||
+          (delivery.created_by_user && delivery.created_by_user.toLowerCase().includes(lowerSearchTerm)) ||
+          (delivery.recipient_address && delivery.recipient_address.toLowerCase().includes(lowerSearchTerm))
       )
     }
 
@@ -95,6 +186,12 @@ const DeliveryList = () => {
     setSelectedDelivery(delivery)
     setNewStatus(delivery.status)
     setStatusModalOpen(true)
+  }
+
+  // Open details modal
+  const openDetailsModal = (delivery) => {
+    setSelectedDelivery(delivery)
+    setDetailsModalOpen(true)
   }
 
   // Handle status change
@@ -113,6 +210,9 @@ const DeliveryList = () => {
       ))
       
       setStatusModalOpen(false)
+      
+      // Refresh deliveries to update stats
+      fetchDeliveries()
     } catch (err) {
       console.error('Error updating delivery status:', err)
       alert('Failed to update status: ' + (err.response?.data?.error || 'Unknown error'))
@@ -121,16 +221,18 @@ const DeliveryList = () => {
     }
   }
 
-  // Handle delivery deletion
+  // Handle delivery deletion (archiving)
   const handleDelete = async (id) => {
-    if (window.confirm('Are you sure you want to delete this delivery?')) {
+    if (window.confirm('Are you sure you want to archive this delivery?')) {
       try {
         await axios.delete(`/api/deliveries/${id}`)
         // Update state to remove deleted delivery
         setDeliveries(deliveries.filter(delivery => delivery.id !== id))
+        // Refresh the data
+        fetchDeliveries()
       } catch (err) {
-        console.error('Error deleting delivery:', err)
-        alert('Failed to delete delivery')
+        console.error('Error archiving delivery:', err)
+        alert('Failed to archive delivery')
       }
     }
   }
@@ -164,6 +266,8 @@ const DeliveryList = () => {
         d.id === delivery.id ? response.data : d
       ));
       
+      // Refresh deliveries to update stats
+      fetchDeliveries();
     } catch (err) {
       console.error('Error updating delivery status:', err);
       alert('Failed to update status: ' + (err.response?.data?.error || 'Unknown error'));
@@ -172,22 +276,47 @@ const DeliveryList = () => {
 
   // Render status chip with appropriate color
   const renderStatusChip = (status) => {
-    let color = 'neutral'
-    if (status === 'delivered') color = 'success'
-    if (status === 'in_transit') color = 'primary'
-    if (status === 'pending') color = 'warning'
-    if (status === 'preparing') color = 'neutral'
-    if (status === 'loading') color = 'info'
-    if (status === 'cancelled') color = 'danger'
-
+    let color, icon
+    
+    switch (status) {
+      case 'delivered':
+        color = 'success'
+        icon = <CheckCircleIcon />
+        break
+      case 'in_transit':
+        color = 'primary'
+        icon = <LocalShippingIcon />
+        break
+      case 'pending':
+        color = 'warning'
+        icon = <PendingIcon />
+        break
+      case 'preparing':
+        color = 'neutral'
+        icon = <WarehouseIcon />
+        break
+      case 'loading':
+        color = 'info'
+        icon = <WarehouseIcon />
+        break
+      case 'cancelled':
+        color = 'danger'
+        icon = <CancelIcon />
+        break
+      default:
+        color = 'neutral'
+        icon = <PendingIcon />
+    }
+    
     return (
       <Chip
-        size="sm"
-        variant="soft"
         color={color}
+        variant="soft"
+        startDecorator={icon}
+        size="sm"
         sx={{ textTransform: 'capitalize' }}
       >
-        {status.replace('_', ' ')}
+        {status?.replace('_', ' ')}
       </Chip>
     )
   }
@@ -251,243 +380,386 @@ const DeliveryList = () => {
           {renderStatusChip(delivery.status)}
           
           {canQuickUpdate && (
-            <Button
-              size="sm"
-              variant="soft"
-              color="primary"
-              startDecorator={nextStatusIcon}
-              onClick={(e) => {
-                e.stopPropagation();
-                handleQuickStatusUpdate(delivery);
-              }}
-              sx={{ mt: 1, fontSize: '0.75rem' }}
-            >
-              {nextStatusLabel}
-            </Button>
+            <Tooltip title={`Update to: ${nextStatusLabel}`}>
+              <Button
+                size="sm"
+                variant="soft"
+                startDecorator={nextStatusIcon}
+                onClick={() => handleQuickStatusUpdate(delivery)}
+                sx={{ mt: 0.5 }}
+              >
+                {nextStatusLabel}
+              </Button>
+            </Tooltip>
           )}
         </Box>
       </td>
     );
   };
 
-  if (loading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
-        <CircularProgress />
-      </Box>
-    )
+  // Format date
+  const formatDate = (dateString) => {
+    if (!dateString) return 'Not specified'
+    return new Date(dateString).toLocaleString()
   }
 
-  if (error) {
-    return (
-      <Box sx={{ p: 2 }}>
-        <Alert color="danger">{error}</Alert>
-        <Button
-          onClick={() => window.location.reload()}
-          sx={{ mt: 2 }}
-        >
-          Retry
-        </Button>
-      </Box>
-    )
+  // Reset filters
+  const resetFilters = () => {
+    setSearchTerm('')
+    setStatusFilter('all')
+  }
+
+  // Render correct filter options based on the active tab
+  const renderFilterOptions = () => {
+    // Common filter options for both views
+    const commonOptions = [
+      { value: 'all', label: 'All Statuses' },
+      { value: 'in_transit', label: 'In Transit' },
+      { value: 'loading', label: 'Loading' },
+      { value: 'preparing', label: 'Preparing' }
+    ]
+
+    // Options for All Deliveries view
+    const allDeliveriesOptions = [
+      ...commonOptions,
+      { value: 'pending', label: 'Pending' },
+      { value: 'delivered', label: 'Delivered' },
+      { value: 'cancelled', label: 'Cancelled' }
+    ]
+
+    // For Ongoing view, we only need the common options
+    return viewTab === 0 ? allDeliveriesOptions : commonOptions
   }
 
   return (
     <Box sx={{ py: 2 }}>
+      {/* Header with title and action buttons */}
       <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Typography level="h3">Deliveries</Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Sheet
+            variant="soft"
+            color="primary"
+            sx={{ 
+              p: 1.5, 
+              borderRadius: 'sm', 
+              display: 'flex', 
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            <LocalShippingIcon fontSize="large" />
+          </Sheet>
+          <Typography level="h4">Deliveries</Typography>
+        </Box>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button
+            startDecorator={<RefreshIcon />}
+            onClick={fetchDeliveries}
+            variant="outlined"
+          >
+            Refresh
+          </Button>
+          {(isAdmin || isWarehouseUser) && (
+            <Button
+              component={RouterLink}
+              to="/deliveries/new"
+              startDecorator={<AddIcon />}
+              color="primary"
+            >
+              New Delivery
+            </Button>
+          )}
+        </Box>
+      </Box>
+
+      {error && (
+        <Alert color="danger" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
+
+      {/* View selector tabs */}
+      <Tabs 
+        value={viewTab} 
+        onChange={(e, newValue) => setViewTab(newValue)} 
+        sx={{ mb: 2 }}
+      >
+        <TabList>
+          <Tab>All Deliveries</Tab>
+          <Tab>Ongoing Deliveries</Tab>
+        </TabList>
+      </Tabs>
+
+      {/* Stats cards for Ongoing Deliveries view */}
+      {viewTab === 1 && (
+        <Box sx={{ mb: 3, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+          <Card sx={{ flex: 1, minWidth: 200 }}>
+            <CardContent sx={{ textAlign: 'center' }}>
+              <Typography level="h3">{stats.total}</Typography>
+              <Typography level="body-md">Total Ongoing</Typography>
+            </CardContent>
+          </Card>
+          <Card sx={{ flex: 1, minWidth: 200 }}>
+            <CardContent sx={{ textAlign: 'center' }}>
+              <Typography level="h3" color="primary">{stats.inTransit}</Typography>
+              <Typography level="body-md">In Transit</Typography>
+            </CardContent>
+          </Card>
+          <Card sx={{ flex: 1, minWidth: 200 }}>
+            <CardContent sx={{ textAlign: 'center' }}>
+              <Typography level="h3" color="warning">{stats.loading}</Typography>
+              <Typography level="body-md">Loading</Typography>
+            </CardContent>
+          </Card>
+          <Card sx={{ flex: 1, minWidth: 200 }}>
+            <CardContent sx={{ textAlign: 'center' }}>
+              <Typography level="h3" color="neutral">{stats.preparing}</Typography>
+              <Typography level="body-md">Preparing</Typography>
+            </CardContent>
+          </Card>
+        </Box>
+      )}
+
+      {/* Search and filter controls */}
+      <Box sx={{ mb: 2, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+        <FormControl sx={{ minWidth: 200 }}>
+          <FormLabel>Search Deliveries</FormLabel>
+          <Input
+            placeholder="Search by tracking #, recipient..."
+            startDecorator={<SearchIcon />}
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </FormControl>
+        <FormControl sx={{ minWidth: 120 }}>
+          <FormLabel>Status Filter</FormLabel>
+          <Select
+            value={statusFilter}
+            onChange={(e, newValue) => setStatusFilter(newValue)}
+            startDecorator={<FilterAltIcon />}
+          >
+            {renderFilterOptions().map((option) => (
+              <Option key={option.value} value={option.value}>{option.label}</Option>
+            ))}
+          </Select>
+        </FormControl>
         <Button
-          component={RouterLink}
-          to="/deliveries/new"
-          startDecorator={<AddIcon />}
+          sx={{ alignSelf: 'flex-end' }}
+          startDecorator={<FilterAltOffIcon />}
+          variant="soft"
+          color="neutral"
+          onClick={resetFilters}
         >
-          New Delivery
+          Reset Filters
         </Button>
       </Box>
 
-      {/* Filters */}
-      <Box
-        sx={{
-          mb: 3,
-          display: 'flex',
-          flexDirection: { xs: 'column', sm: 'row' },
-          gap: 2,
-          alignItems: { sm: 'flex-end' },
-        }}
-      >
-        <FormControl sx={{ flex: 1 }}>
-          <FormLabel>Search</FormLabel>
-          <Input
-            placeholder="Search by name, address, tracking number..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            startDecorator={<SearchIcon />}
-          />
-        </FormControl>
-
-        <FormControl sx={{ minWidth: 120 }}>
-          <FormLabel>Status</FormLabel>
-          <Select
-            value={statusFilter}
-            onChange={(e, value) => setStatusFilter(value)}
-            sx={{ minWidth: 140 }}
-          >
-            <Option value="all">All</Option>
-            <Option value="pending">Pending</Option>
-            <Option value="preparing">Preparing</Option>
-            <Option value="loading">Loading</Option>
-            <Option value="in_transit">In Transit</Option>
-            <Option value="delivered">Delivered</Option>
-            <Option value="cancelled">Cancelled</Option>
-          </Select>
-        </FormControl>
-      </Box>
-
-      {/* Deliveries Table */}
-      <Sheet
-        variant="outlined"
-        sx={{
-          borderRadius: 'sm',
-          overflow: { xs: 'auto', sm: 'initial' },
-        }}
-      >
-        <Table
-          sx={{
-            '& thead th:nth-child(1)': { width: '40%' },
-            '& thead th:nth-child(2)': { width: '20%' },
-            '& thead th:nth-child(3)': { width: '20%' },
-            '& thead th:nth-child(4)': { width: '20%' },
-            '& tbody tr': {
-              '&:hover': { bgcolor: 'background.level1' },
-              cursor: 'pointer',
-            },
-          }}
-        >
-          <thead>
-            <tr>
-              <th>Recipient Info</th>
-              <th>Tracking</th>
-              <th>Status</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredDeliveries.length === 0 ? (
+      {/* Deliveries table */}
+      {loading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+          <CircularProgress />
+        </Box>
+      ) : filteredDeliveries.length === 0 ? (
+        <Alert color="primary">
+          No deliveries found matching the current filters.
+        </Alert>
+      ) : (
+        <Sheet sx={{ borderRadius: 'md', overflow: 'auto' }}>
+          <Table sx={{ '& th': { textAlign: 'left' } }}>
+            <thead>
               <tr>
-                <td colSpan={4} style={{ textAlign: 'center' }}>
-                  No deliveries found
-                </td>
+                <th>ID</th>
+                <th>Tracking #</th>
+                <th>Recipient</th>
+                <th>Branch</th>
+                <th>Status</th>
+                <th>Created</th>
+                <th>Actions</th>
               </tr>
-            ) : (
-              filteredDeliveries.map((delivery) => (
+            </thead>
+            <tbody>
+              {filteredDeliveries.map(delivery => (
                 <tr key={delivery.id}>
-                  <td>
-                    <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-                      <Typography level="body-sm" sx={{ fontWeight: 'bold' }}>
-                        {delivery.recipient_name}
-                      </Typography>
-                      <Typography level="body-xs" noWrap>
-                        {delivery.recipient_address}
-                      </Typography>
-                    </Box>
-                  </td>
-                  <td>
-                    <Typography level="body-sm">{delivery.tracking_number}</Typography>
-                  </td>
+                  <td>{delivery.id}</td>
+                  <td>{delivery.tracking_number}</td>
+                  <td>{delivery.recipient_name}</td>
+                  <td>{delivery.branch_name || 'N/A'}</td>
                   {renderStatusCell(delivery)}
+                  <td>{formatDate(delivery.created_at)}</td>
                   <td>
                     <Box sx={{ display: 'flex', gap: 1 }}>
-                      <Tooltip title="Update Status" placement="top">
+                      <Tooltip title="View Details">
                         <IconButton
                           size="sm"
                           variant="plain"
                           color="primary"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openStatusModal(delivery);
-                          }}
+                          onClick={() => openDetailsModal(delivery)}
                         >
-                          <UpdateIcon />
+                          <VisibilityIcon />
                         </IconButton>
                       </Tooltip>
-                      <IconButton
-                        size="sm"
-                        variant="plain"
-                        color="neutral"
-                        component={RouterLink}
-                        to={`/deliveries/${delivery.id}`}
-                      >
-                        <EditIcon />
-                      </IconButton>
-                      <IconButton
-                        size="sm"
-                        variant="plain"
-                        color="danger"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDelete(delivery.id);
-                        }}
-                      >
-                        <DeleteIcon />
-                      </IconButton>
+
+                      {(isAdmin || isWarehouseUser) && (
+                        <>
+                          <Tooltip title="Update Status">
+                            <IconButton
+                              size="sm"
+                              variant="plain"
+                              color="primary"
+                              onClick={() => openStatusModal(delivery)}
+                            >
+                              <UpdateIcon />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Edit">
+                            <IconButton
+                              size="sm"
+                              variant="plain"
+                              color="neutral"
+                              component={RouterLink}
+                              to={`/deliveries/${delivery.id}`}
+                            >
+                              <EditIcon />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Archive">
+                            <IconButton
+                              size="sm"
+                              variant="plain"
+                              color="danger"
+                              onClick={() => handleDelete(delivery.id)}
+                            >
+                              <DeleteIcon />
+                            </IconButton>
+                          </Tooltip>
+                        </>
+                      )}
+
+                      {isBranchUser && delivery.status === 'in_transit' && (
+                        <Tooltip title="Confirm Receipt">
+                          <Button
+                            size="sm"
+                            color="success"
+                            variant="soft"
+                            startDecorator={<CheckCircleIcon />}
+                            onClick={() => handleQuickStatusUpdate(delivery)}
+                          >
+                            Confirm Receipt
+                          </Button>
+                        </Tooltip>
+                      )}
                     </Box>
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </Table>
-      </Sheet>
-      
+              ))}
+            </tbody>
+          </Table>
+        </Sheet>
+      )}
+
       {/* Status Update Modal */}
       <Modal open={statusModalOpen} onClose={() => setStatusModalOpen(false)}>
-        <ModalDialog size="sm">
+        <ModalDialog>
           <ModalClose />
-          <Typography level="title-lg" sx={{ mb: 2 }}>
-            Update Delivery Status
-          </Typography>
+          <Typography level="h5">Update Delivery Status</Typography>
+          <Divider sx={{ my: 2 }} />
           
-          {selectedDelivery && (
-            <Box>
-              <Typography level="body-sm" sx={{ mb: 2 }}>
-                Tracking: {selectedDelivery.tracking_number}
-              </Typography>
-              
-              <FormControl sx={{ mb: 2 }}>
-                <FormLabel>Select New Status</FormLabel>
-                <Select
-                  value={newStatus}
-                  onChange={(_, value) => setNewStatus(value)}
-                  startDecorator={getStatusIcon(newStatus)}
-                >
-                  <Option value="pending" startDecorator={<InventoryIcon />}>Pending</Option>
-                  <Option value="preparing" startDecorator={<InventoryIcon />}>Preparing</Option>
-                  <Option value="loading" startDecorator={<LocalShippingIcon />}>Loading</Option>
-                  <Option value="in_transit" startDecorator={<LocalShippingIcon />}>In Transit</Option>
-                  <Option value="delivered" startDecorator={<CheckCircleIcon />}>Delivered</Option>
-                  <Option value="cancelled" startDecorator={<CancelIcon />}>Cancelled</Option>
-                </Select>
-              </FormControl>
-              
-              <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end', mt: 2 }}>
-                <Button
-                  variant="outlined"
-                  color="neutral"
-                  onClick={() => setStatusModalOpen(false)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  loading={updateLoading}
-                  onClick={handleStatusChange}
-                >
-                  Update Status
-                </Button>
-              </Box>
-            </Box>
-          )}
+          <FormControl sx={{ mb: 2 }}>
+            <FormLabel>Status</FormLabel>
+            <Select
+              value={newStatus}
+              onChange={(e, value) => setNewStatus(value)}
+            >
+              <Option value="pending">Pending</Option>
+              <Option value="preparing">Preparing</Option>
+              <Option value="loading">Loading</Option>
+              <Option value="in_transit">In Transit</Option>
+              <Option value="delivered">Delivered</Option>
+              <Option value="cancelled">Cancelled</Option>
+            </Select>
+          </FormControl>
+          
+          <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end', mt: 2 }}>
+            <Button
+              variant="plain"
+              color="neutral"
+              onClick={() => setStatusModalOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              loading={updateLoading}
+              onClick={handleStatusChange}
+            >
+              Update
+            </Button>
+          </Box>
         </ModalDialog>
       </Modal>
+
+      {/* Delivery Details Modal */}
+      {selectedDelivery && (
+        <Modal open={detailsModalOpen} onClose={() => setDetailsModalOpen(false)}>
+          <ModalDialog size="lg">
+            <ModalClose />
+            <Typography level="h5" sx={{ mb: 2 }}>
+              Delivery Details
+            </Typography>
+            <Divider sx={{ mb: 2 }} />
+            
+            <Grid container spacing={2}>
+              <Grid xs={12} sm={6}>
+                <Typography level="title-md">Tracking Number</Typography>
+                <Typography>{selectedDelivery.tracking_number || 'N/A'}</Typography>
+              </Grid>
+              <Grid xs={12} sm={6}>
+                <Typography level="title-md">Status</Typography>
+                <Box>{renderStatusChip(selectedDelivery.status)}</Box>
+              </Grid>
+              <Grid xs={12} sm={6}>
+                <Typography level="title-md">Recipient</Typography>
+                <Typography>{selectedDelivery.recipient_name || 'N/A'}</Typography>
+              </Grid>
+              <Grid xs={12} sm={6}>
+                <Typography level="title-md">Branch</Typography>
+                <Typography>{selectedDelivery.branch_name || 'N/A'}</Typography>
+              </Grid>
+              <Grid xs={12}>
+                <Typography level="title-md">Address</Typography>
+                <Typography>{selectedDelivery.recipient_address || 'N/A'}</Typography>
+              </Grid>
+              <Grid xs={12} sm={6}>
+                <Typography level="title-md">Phone</Typography>
+                <Typography>{selectedDelivery.recipient_phone || 'N/A'}</Typography>
+              </Grid>
+              <Grid xs={12} sm={6}>
+                <Typography level="title-md">Weight</Typography>
+                <Typography>{selectedDelivery.weight ? `${selectedDelivery.weight} kg` : 'N/A'}</Typography>
+              </Grid>
+              <Grid xs={12}>
+                <Typography level="title-md">Package Description</Typography>
+                <Typography>{selectedDelivery.package_description || 'No description provided'}</Typography>
+              </Grid>
+              <Grid xs={12} sm={6}>
+                <Typography level="title-md">Created At</Typography>
+                <Typography>{formatDate(selectedDelivery.created_at)}</Typography>
+              </Grid>
+              <Grid xs={12} sm={6}>
+                <Typography level="title-md">Created By</Typography>
+                <Typography>{selectedDelivery.created_by_user || 'N/A'}</Typography>
+              </Grid>
+              {selectedDelivery.received_at && (
+                <>
+                  <Grid xs={12} sm={6}>
+                    <Typography level="title-md">Received At</Typography>
+                    <Typography>{formatDate(selectedDelivery.received_at)}</Typography>
+                  </Grid>
+                </>
+              )}
+            </Grid>
+          </ModalDialog>
+        </Modal>
+      )}
     </Box>
   )
 }

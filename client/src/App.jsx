@@ -9,7 +9,6 @@ import DeliveryList from './pages/DeliveryList'
 import DeliveryForm from './pages/DeliveryForm'
 import DeliveryRequestList from './pages/DeliveryRequestList'
 import DeliveryRequestForm from './pages/DeliveryRequestForm'
-import OngoingDeliveries from './pages/OngoingDeliveries'
 import Summary from './pages/Summary'
 import NotFound from './pages/NotFound'
 import CompanyDirectory from './pages/CompanyDirectory/CompanyDirectory'
@@ -77,10 +76,7 @@ function App() {
         {/* Archive Page - Replaces history pages */}
         <Route path="archive" element={<Archive />} />
         
-        {/* Ongoing Deliveries - Available to branch users and admin */}
-        <Route path="ongoing-deliveries" element={<OngoingDeliveries />} />
-        
-        {/* Deliveries - Available to admin and warehouse users */}
+        {/* Deliveries - Available to all users */}
         <Route path="deliveries" element={<DeliveryList />} />
         <Route path="deliveries/new" element={<DeliveryForm />} />
         <Route path="deliveries/:id" element={<DeliveryForm />} />
