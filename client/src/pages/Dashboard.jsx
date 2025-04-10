@@ -262,7 +262,13 @@ const Dashboard = () => {
             </Typography>
           </Box>
         </Box>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+        <Box sx={{ 
+          display: 'flex', 
+          alignItems: 'flex-start', 
+          gap: 2,
+          flexWrap: { xs: 'wrap', sm: 'nowrap' },
+          justifyContent: { xs: 'flex-end' }
+        }}>
           <FormControl size="sm">
             <FormLabel>Time Period</FormLabel>
             <Select
@@ -281,24 +287,20 @@ const Dashboard = () => {
             </Select>
           </FormControl>
           
-          {(isAdmin || isWarehouse) && (
-            <Button
-              component={RouterLink}
-              to="/deliveries/new"
-              startDecorator={<AddIcon />}
-            >
-              New Delivery
-            </Button>
-          )}
-          
           {isBranch && (
-            <Button
-              component={RouterLink}
-              to="/delivery-requests/new"
-              startDecorator={<AddIcon />}
-            >
-              New Request
-            </Button>
+            <Box sx={{ 
+              display: 'flex',
+              alignSelf: 'flex-end',
+              height: '40px', /* Match the height of the select component to align buttons */
+            }}>
+              <Button
+                component={RouterLink}
+                to="/delivery-requests/new"
+                startDecorator={<AddIcon />}
+              >
+                New Request
+              </Button>
+            </Box>
           )}
         </Box>
       </Box>

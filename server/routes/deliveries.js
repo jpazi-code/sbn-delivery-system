@@ -645,7 +645,7 @@ router.put('/:id/confirm-receipt', async (req, res) => {
   }
 });
 
-// Update delivery status only
+// Update delivery status
 router.put('/:id/status', async (req, res) => {
   try {
     const { id } = req.params;
@@ -655,6 +655,11 @@ router.put('/:id/status', async (req, res) => {
     const deliveryId = parseInt(id, 10);
     if (isNaN(deliveryId)) {
       return res.status(400).json({ error: 'Invalid delivery ID. Must be a number.' });
+    }
+    
+    // Only admin and warehouse users can update delivery status
+    if (req.user.role !== 'admin' && req.user.role !== 'warehouse') {
+      return res.status(403).json({ error: 'Unauthorized: Only admin and warehouse users can update delivery status' });
     }
     
     // Basic validation

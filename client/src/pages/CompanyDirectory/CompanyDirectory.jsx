@@ -357,6 +357,101 @@ const CompanyDirectory = () => {
     }
   };
   
+  // Render users in grid view
+  const renderGridView = () => {
+    if (filteredUsers.length === 0) {
+      return (
+        <Alert color="neutral" sx={{ mt: 2 }}>
+          No users found matching the current filters.
+        </Alert>
+      );
+    }
+    
+    return (
+      <Grid container spacing={2} sx={{ mt: 2 }}>
+        {filteredUsers.map(user => (
+          <Grid key={user.id} xs={12} sm={6} md={4} lg={3}>
+            <Card 
+              variant="outlined" 
+              sx={{ 
+                height: '100%',
+                display: 'flex', 
+                flexDirection: 'column'
+              }}
+            >
+              <CardContent sx={{ 
+                flexGrow: 1, 
+                display: 'flex', 
+                flexDirection: 'column', 
+                alignItems: 'center',
+                gap: 1.5
+              }}>
+                {renderUserAvatar(user)}
+                
+                <Typography level="title-lg">
+                  {user.full_name || user.username}
+                </Typography>
+                
+                {renderRoleChip(user.role)}
+                
+                {user.email && (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
+                    <EmailIcon fontSize="small" />
+                    <Typography level="body-sm">{user.email}</Typography>
+                  </Box>
+                )}
+                
+                {user.branch_name && (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <StorefrontIcon fontSize="small" />
+                    <Typography level="body-sm">{user.branch_name}</Typography>
+                  </Box>
+                )}
+              </CardContent>
+
+              <CardOverflow sx={{ bgcolor: 'background.level1', mt: 'auto' }}>
+                <Divider inset="context" />
+                <CardActions>
+                  <Button
+                    size="sm"
+                    variant="plain"
+                    color="neutral"
+                    onClick={() => openDetailsView(user)}
+                    startDecorator={<VisibilityIcon />}
+                  >
+                    Details
+                  </Button>
+                  {isAdmin && (
+                    <Button
+                      size="sm"
+                      variant="plain"
+                      color="primary"
+                      onClick={() => openEditForm(user)}
+                      startDecorator={<EditIcon />}
+                    >
+                      Edit
+                    </Button>
+                  )}
+                  {isAdmin && (
+                    <Button
+                      size="sm"
+                      variant="plain"
+                      color="danger"
+                      onClick={() => openDeleteConfirm(user)}
+                      startDecorator={<DeleteIcon />}
+                    >
+                      Delete
+                    </Button>
+                  )}
+                </CardActions>
+              </CardOverflow>
+            </Card>
+          </Grid>
+        ))}
+      </Grid>
+    );
+  };
+  
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
@@ -517,78 +612,7 @@ const CompanyDirectory = () => {
       </Tabs>
 
       {/* User List */}
-      {filteredUsers.length === 0 ? (
-        <Box sx={{ p: 3, textAlign: 'center', bgcolor: 'background.level1', borderRadius: 'sm' }}>
-          <Typography level="body-lg">No users found</Typography>
-        </Box>
-      ) : viewMode === 'grid' ? (
-        <Grid container spacing={2}>
-          {filteredUsers.map(user => (
-            <Grid key={user.id} xs={12} sm={6} md={4} lg={3}>
-              <Card variant="outlined">
-                <CardContent sx={{ textAlign: 'center' }}>
-                  {renderUserAvatar(user)}
-                  
-                  <Typography level="title-md" sx={{ mb: 0.5 }}>
-                    {user.full_name || user.username}
-                  </Typography>
-                  
-                  {renderRoleChip(user.role)}
-                  
-                  <Typography level="body-sm" sx={{ mt: 1 }}>
-                    {user.email}
-                  </Typography>
-                  
-                  {user.branch_name && (
-                    <Typography level="body-sm" sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5, mt: 0.5 }}>
-                      <StorefrontIcon fontSize="small" />
-                      {user.branch_name}
-                    </Typography>
-                  )}
-                </CardContent>
-                
-                <CardOverflow sx={{ bgcolor: 'background.level1' }}>
-                  <CardActions buttonFlex="1">
-                    <Button 
-                      size="sm" 
-                      variant="outlined" 
-                      color="neutral"
-                      startDecorator={<VisibilityIcon />}
-                      onClick={() => openDetailsView(user)}
-                    >
-                      Details
-                    </Button>
-                    
-                    {isAdmin && (
-                      <Button 
-                        size="sm" 
-                        variant="outlined" 
-                        color="primary"
-                        startDecorator={<EditIcon />}
-                        onClick={() => openEditForm(user)}
-                      >
-                        Edit
-                      </Button>
-                    )}
-                    
-                    {isAdmin && (
-                      <Button 
-                        size="sm" 
-                        variant="outlined" 
-                        color="danger"
-                        startDecorator={<DeleteIcon />}
-                        onClick={() => openDeleteConfirm(user)}
-                      >
-                        Delete
-                      </Button>
-                    )}
-                  </CardActions>
-                </CardOverflow>
-              </Card>
-            </Grid>
-          ))}
-        </Grid>
-      ) : (
+      {viewMode === 'grid' ? renderGridView() : (
         <Sheet
           variant="outlined"
           sx={{
