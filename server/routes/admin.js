@@ -1,6 +1,7 @@
 const express = require('express');
 const db = require('../db');
 const { authenticateToken, isAdmin } = require('../middleware/auth');
+const bcrypt = require('bcrypt');
 const router = express.Router();
 
 // Apply authentication middleware to all admin routes
@@ -10,20 +11,43 @@ router.use(isAdmin); // Ensure only admins can access these routes
 // Clear archive endpoint
 router.delete('/clear-archive', async (req, res) => {
   try {
+    const { password } = req.body;
+    
+    // Verify the admin password
+    if (!password) {
+      return res.status(400).json({ error: 'Password is required' });
+    }
+    
+    // Get the admin's password hash from database
+    const adminResult = await db.query(
+      'SELECT password FROM users WHERE id = $1 AND role = $2',
+      [req.user.id, 'admin']
+    );
+    
+    if (adminResult.rows.length === 0) {
+      return res.status(403).json({ error: 'Admin account not found' });
+    }
+    
+    const isValid = await bcrypt.compare(password, adminResult.rows[0].password);
+    
+    if (!isValid) {
+      return res.status(401).json({ error: 'Invalid password' });
+    }
+    
     // Start a transaction to ensure all operations are atomic
     await db.query('BEGIN');
     
-    // Delete archived delivery requests
+    // Delete archived delivery requests - both status='archived' and is_archived=true
     const archivedRequestsResult = await db.query(`
       DELETE FROM delivery_requests
-      WHERE request_status = 'archived'
+      WHERE request_status = 'archived' OR is_archived = true
       RETURNING id
     `);
     
-    // Delete archived deliveries
+    // Delete archived deliveries - both status='archived' and is_archived=true
     const archivedDeliveriesResult = await db.query(`
       DELETE FROM deliveries
-      WHERE status = 'archived'
+      WHERE status = 'archived' OR is_archived = true
       RETURNING id
     `);
 
@@ -33,6 +57,8 @@ router.delete('/clear-archive', async (req, res) => {
     
     // Commit the transaction
     await db.query('COMMIT');
+    
+    console.log(`Archives cleared: ${deletedRequests} requests, ${deletedDeliveries} deliveries`);
     
     // Send response with the count of deleted items
     res.status(200).json({

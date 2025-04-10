@@ -346,21 +346,39 @@ const Settings = () => {
     return user?.username?.substring(0, 2).toUpperCase() || 'U';
   };
   
-  // Clear all archived deliveries and requests
+  // Initialize state for admin password input
+  const [adminPassword, setAdminPassword] = useState('');
+  const [passwordError, setPasswordError] = useState(null);
+
+  // Modified clear archive handler
   const handleClearArchive = async () => {
+    if (!adminPassword) {
+      setPasswordError('Please enter your admin password to confirm');
+      return;
+    }
+    
     try {
       setClearingArchive(true);
       setError(null);
       setSuccess(null);
+      setPasswordError(null);
       
-      const response = await axios.delete('/api/admin/clear-archive');
+      const response = await axios.delete('/api/admin/clear-archive', {
+        data: { password: adminPassword }
+      });
       
       console.log('Archive cleared:', response.data);
       setSuccess(`Archive cleared successfully. ${response.data.deletedItems.total} items removed.`);
       setClearArchiveOpen(false);
+      setAdminPassword(''); // Reset password field
     } catch (err) {
       console.error('Error clearing archive:', err);
-      setError(err.response?.data?.error || 'Failed to clear archive');
+      if (err.response?.status === 401) {
+        setPasswordError('Invalid password. Please try again.');
+      } else {
+        setError(err.response?.data?.error || 'Failed to clear archive');
+        setClearArchiveOpen(false);
+      }
     } finally {
       setClearingArchive(false);
     }
@@ -601,7 +619,7 @@ const Settings = () => {
       </Card>
       
       {/* Appearance Settings Card */}
-      <Card>
+      <Card sx={{ mb: 3 }}>
         <CardContent>
           <Typography level="title-lg" startDecorator={
             mode === 'dark' ? <DarkModeIcon /> : <LightModeIcon />
@@ -627,6 +645,9 @@ const Settings = () => {
           </Box>
         </CardContent>
       </Card>
+      
+      {/* Add vertical spacing here */}
+      <Box sx={{ mb: 3 }}></Box>
       
       {/* Admin Settings Card - only visible to admins */}
       {user?.role === 'admin' && (
@@ -689,11 +710,32 @@ const Settings = () => {
           <Typography level="body-md" mb={2}>
             Are you sure you want to clear all archived data? This action cannot be undone and will permanently delete all archived deliveries and requests.
           </Typography>
+          
+          <FormControl sx={{ mb: 2 }}>
+            <FormLabel>Enter your admin password to confirm</FormLabel>
+            <Input
+              type="password"
+              value={adminPassword}
+              onChange={(e) => setAdminPassword(e.target.value)}
+              placeholder="Admin password"
+              error={Boolean(passwordError)}
+            />
+            {passwordError && (
+              <Typography level="body-xs" color="danger" mt={0.5}>
+                {passwordError}
+              </Typography>
+            )}
+          </FormControl>
+          
           <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
             <Button
               variant="outlined"
               color="neutral"
-              onClick={() => setClearArchiveOpen(false)}
+              onClick={() => {
+                setClearArchiveOpen(false);
+                setAdminPassword('');
+                setPasswordError(null);
+              }}
             >
               Cancel
             </Button>
@@ -702,6 +744,7 @@ const Settings = () => {
               color="danger"
               onClick={handleClearArchive}
               loading={clearingArchive}
+              disabled={!adminPassword}
             >
               Clear Archive
             </Button>
