@@ -66,6 +66,10 @@ const DeliveryList = () => {
 
   // State for delivery details modal
   const [detailsModalOpen, setDetailsModalOpen] = useState(false)
+  
+  // State for delete confirmation modal
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [deliveryToDelete, setDeliveryToDelete] = useState(null)
 
   // Stats for ongoing deliveries
   const [stats, setStats] = useState({
@@ -215,27 +219,83 @@ const DeliveryList = () => {
       fetchDeliveries()
     } catch (err) {
       console.error('Error updating delivery status:', err)
-      alert('Failed to update status: ' + (err.response?.data?.error || 'Unknown error'))
+      // Use in-app alert instead of browser alert
+      setError({ type: 'error', message: 'Failed to update status: ' + (err.response?.data?.error || 'Unknown error') })
+      setTimeout(() => setError(null), 5000) // Clear error after 5 seconds
     } finally {
       setUpdateLoading(false)
     }
   }
 
-  // Handle delivery deletion (archiving)
-  const handleDelete = async (id) => {
-    if (window.confirm('Are you sure you want to archive this delivery?')) {
-      try {
-        await axios.delete(`/api/deliveries/${id}`)
-        // Update state to remove deleted delivery
-        setDeliveries(deliveries.filter(delivery => delivery.id !== id))
-        // Refresh the data
-        fetchDeliveries()
-      } catch (err) {
-        console.error('Error archiving delivery:', err)
-        alert('Failed to archive delivery')
-      }
+  // Handle confirming receipt (for branch users)
+  const handleConfirmReceipt = async (delivery) => {
+    try {
+      const response = await axios.put(`/api/deliveries/${delivery.id}/confirm-receipt`);
+      
+      // Update delivery in state
+      setDeliveries(deliveries.map(d => 
+        d.id === delivery.id ? response.data : d
+      ));
+      
+      // Show success message
+      setError({ type: 'success', message: 'Delivery confirmed successfully!' });
+      setTimeout(() => setError(null), 5000); // Clear message after 5 seconds
+      
+      // Refresh deliveries to update stats
+      fetchDeliveries();
+    } catch (err) {
+      console.error('Error confirming delivery receipt:', err);
+      // Use in-app alert instead of browser alert
+      setError({ type: 'error', message: 'Failed to confirm receipt: ' + (err.response?.data?.message || 'Unknown error') });
+      setTimeout(() => setError(null), 5000); // Clear error after 5 seconds
     }
-  }
+  };
+
+  // Handle delete button click
+  const openDeleteConfirm = (delivery) => {
+    // Don't allow deleting already delivered items
+    if (delivery.status === 'delivered') {
+      setError({ type: 'warning', message: 'Delivered items cannot be archived' });
+      setTimeout(() => setError(null), 5000);
+      return;
+    }
+    
+    setDeliveryToDelete(delivery);
+    setDeleteConfirmOpen(true);
+  };
+
+  // Handle delivery deletion (archiving)
+  const handleDelete = async () => {
+    if (!deliveryToDelete) return;
+    
+    // Double check to prevent deleting delivered items
+    if (deliveryToDelete.status === 'delivered') {
+      setError({ type: 'warning', message: 'Delivered items cannot be archived' });
+      setTimeout(() => setError(null), 5000);
+      setDeleteConfirmOpen(false);
+      return;
+    }
+    
+    try {
+      await axios.delete(`/api/deliveries/${deliveryToDelete.id}`);
+      // Update state to remove deleted delivery
+      setDeliveries(deliveries.filter(delivery => delivery.id !== deliveryToDelete.id));
+      // Show success message
+      setError({ type: 'success', message: 'Delivery archived successfully!' });
+      setTimeout(() => setError(null), 5000); // Clear message after 5 seconds
+      // Refresh the data
+      fetchDeliveries();
+      // Close the modal
+      setDeleteConfirmOpen(false);
+    } catch (err) {
+      console.error('Error archiving delivery:', err);
+      // Use in-app alert instead of browser alert
+      setError({ type: 'error', message: 'Failed to archive delivery' });
+      setTimeout(() => setError(null), 5000); // Clear error after 5 seconds
+      // Close the modal
+      setDeleteConfirmOpen(false);
+    }
+  };
 
   // Get next logical status
   const getNextStatus = (currentStatus) => {
@@ -270,7 +330,9 @@ const DeliveryList = () => {
       fetchDeliveries();
     } catch (err) {
       console.error('Error updating delivery status:', err);
-      alert('Failed to update status: ' + (err.response?.data?.error || 'Unknown error'));
+      // Use in-app alert instead of browser alert
+      setError('Failed to update status: ' + (err.response?.data?.error || 'Unknown error'));
+      setTimeout(() => setError(null), 5000); // Clear error after 5 seconds
     }
   };
 
@@ -346,7 +408,8 @@ const DeliveryList = () => {
     const nextStatus = getNextStatus(delivery.status);
     const canQuickUpdate = nextStatus !== delivery.status && 
                            delivery.status !== 'delivered' &&
-                           delivery.status !== 'cancelled';
+                           delivery.status !== 'cancelled' &&
+                           !isBranchUser; // Branch users can't update status
                            
     let nextStatusLabel = '';
     let nextStatusIcon = null;
@@ -473,8 +536,16 @@ const DeliveryList = () => {
       </Box>
 
       {error && (
-        <Alert color="danger" sx={{ mb: 2 }}>
-          {error}
+        <Alert 
+          color={error.type === 'success' ? 'success' : 'danger'} 
+          sx={{ mb: 2 }}
+          endDecorator={
+            <Button size="sm" variant="soft" color="neutral" onClick={() => setError(null)}>
+              Dismiss
+            </Button>
+          }
+        >
+          {error.message || error}
         </Alert>
       )}
 
@@ -622,16 +693,20 @@ const DeliveryList = () => {
                               <EditIcon />
                             </IconButton>
                           </Tooltip>
-                          <Tooltip title="Archive">
-                            <IconButton
-                              size="sm"
-                              variant="plain"
-                              color="danger"
-                              onClick={() => handleDelete(delivery.id)}
-                            >
-                              <DeleteIcon />
-                            </IconButton>
-                          </Tooltip>
+                          
+                          {/* Only show archive button for non-delivered items */}
+                          {delivery.status !== 'delivered' && (
+                            <Tooltip title="Archive">
+                              <IconButton
+                                size="sm"
+                                variant="plain"
+                                color="danger"
+                                onClick={() => openDeleteConfirm(delivery)}
+                              >
+                                <DeleteIcon />
+                              </IconButton>
+                            </Tooltip>
+                          )}
                         </>
                       )}
 
@@ -642,7 +717,7 @@ const DeliveryList = () => {
                             color="success"
                             variant="soft"
                             startDecorator={<CheckCircleIcon />}
-                            onClick={() => handleQuickStatusUpdate(delivery)}
+                            onClick={() => handleConfirmReceipt(delivery)}
                           >
                             Confirm Receipt
                           </Button>
@@ -760,6 +835,33 @@ const DeliveryList = () => {
           </ModalDialog>
         </Modal>
       )}
+
+      {/* Delete Confirmation Modal */}
+      <Modal open={deleteConfirmOpen} onClose={() => setDeleteConfirmOpen(false)}>
+        <ModalDialog variant="outlined" role="alertdialog">
+          <ModalClose />
+          <Typography level="h2">
+            Archive Delivery
+          </Typography>
+          <Typography level="body-md" sx={{ mt: 1, mb: 2 }}>
+            Are you sure you want to archive this delivery? 
+            {deliveryToDelete && (
+              <Typography level="body-sm" sx={{ mt: 1 }}>
+                <strong>Tracking #:</strong> {deliveryToDelete.tracking_number}<br />
+                <strong>Recipient:</strong> {deliveryToDelete.recipient_name}
+              </Typography>
+            )}
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end', pt: 2 }}>
+            <Button variant="plain" color="neutral" onClick={() => setDeleteConfirmOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="solid" color="danger" onClick={handleDelete}>
+              Archive
+            </Button>
+          </Box>
+        </ModalDialog>
+      </Modal>
     </Box>
   )
 }

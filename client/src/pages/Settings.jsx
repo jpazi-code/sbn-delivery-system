@@ -22,6 +22,8 @@ import Stack from '@mui/joy/Stack';
 import Snackbar from '@mui/joy/Snackbar';
 import ModalClose from '@mui/joy/ModalClose';
 import { useColorScheme } from '@mui/joy/styles';
+import Modal from '@mui/joy/Modal';
+import ModalDialog from '@mui/joy/ModalDialog';
 
 // Icons
 import SaveIcon from '@mui/icons-material/Save';
@@ -36,6 +38,8 @@ import WarehouseIcon from '@mui/icons-material/Warehouse';
 import StorefrontIcon from '@mui/icons-material/Storefront';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CloseIcon from '@mui/icons-material/Close';
+import ArchiveIcon from '@mui/icons-material/Archive';
+import WarningIcon from '@mui/icons-material/Warning';
 
 const Settings = () => {
   const { user, setUser, logout, refreshUserData } = useAuth();
@@ -46,6 +50,8 @@ const Settings = () => {
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState('');
   const [uploadLoading, setUploadLoading] = useState(false);
+  const [clearArchiveOpen, setClearArchiveOpen] = useState(false);
+  const [clearingArchive, setClearingArchive] = useState(false);
   
   const [formData, setFormData] = useState({
     email: '',
@@ -340,6 +346,26 @@ const Settings = () => {
     return user?.username?.substring(0, 2).toUpperCase() || 'U';
   };
   
+  // Clear all archived deliveries and requests
+  const handleClearArchive = async () => {
+    try {
+      setClearingArchive(true);
+      setError(null);
+      setSuccess(null);
+      
+      const response = await axios.delete('/api/admin/clear-archive');
+      
+      console.log('Archive cleared:', response.data);
+      setSuccess(`Archive cleared successfully. ${response.data.deletedItems.total} items removed.`);
+      setClearArchiveOpen(false);
+    } catch (err) {
+      console.error('Error clearing archive:', err);
+      setError(err.response?.data?.error || 'Failed to clear archive');
+    } finally {
+      setClearingArchive(false);
+    }
+  };
+  
   if (!user) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
@@ -602,6 +628,35 @@ const Settings = () => {
         </CardContent>
       </Card>
       
+      {/* Admin Settings Card - only visible to admins */}
+      {user?.role === 'admin' && (
+        <Card sx={{ mb: 3 }}>
+          <CardContent>
+            <Typography level="title-lg" startDecorator={<AdminPanelSettingsIcon />} sx={{ mb: 2 }}>
+              Admin Settings
+            </Typography>
+            
+            <Divider sx={{ mb: 3 }} />
+            
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Box>
+                <Typography level="title-sm">Clear Archive</Typography>
+                <Typography level="body-sm" color="neutral">
+                  Remove all archived deliveries and requests to free up space
+                </Typography>
+              </Box>
+              <Button
+                color="danger"
+                startDecorator={<ArchiveIcon />}
+                onClick={() => setClearArchiveOpen(true)}
+              >
+                Clear Archive
+              </Button>
+            </Box>
+          </CardContent>
+        </Card>
+      )}
+      
       {/* Success message snackbar */}
       <Snackbar
         open={!!success}
@@ -623,6 +678,36 @@ const Settings = () => {
       >
         {success}
       </Snackbar>
+      
+      {/* Clear Archive Confirmation Modal */}
+      <Modal open={clearArchiveOpen} onClose={() => setClearArchiveOpen(false)}>
+        <ModalDialog variant="outlined" role="alertdialog">
+          <Typography component="h2" level="title-lg" startDecorator={<WarningIcon color="warning" />}>
+            Confirm Clear Archive
+          </Typography>
+          <Divider sx={{ my: 2 }} />
+          <Typography level="body-md" mb={2}>
+            Are you sure you want to clear all archived data? This action cannot be undone and will permanently delete all archived deliveries and requests.
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
+            <Button
+              variant="outlined"
+              color="neutral"
+              onClick={() => setClearArchiveOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="solid"
+              color="danger"
+              onClick={handleClearArchive}
+              loading={clearingArchive}
+            >
+              Clear Archive
+            </Button>
+          </Box>
+        </ModalDialog>
+      </Modal>
     </Box>
   );
 };
